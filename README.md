@@ -24,3 +24,13 @@ Las placas se componen por código en el navegador (canvas): foto + capa PNG del
 - Las capas se armaron con `herramientas/armar_capas.py` a partir de 3 exportaciones gratuitas de Canva (fondo original, negro y blanco). Las 7 texturas prémium del Canva se redibujaron con código (parecidas, no idénticas).
 - **Oak Sans** (Interesante) se reemplaza por Plus Jakarta Sans hasta que se suba el archivo de la tipografía.
 - **ZIP:** una carpeta por medio, JPG 1080×1350. Al descargar se guarda el historial (solo textos).
+
+## Pantalla del productor (Etapa 3)
+Pensada primero para el celular: un paso por vez, con los botones principales fijos abajo.
+1. **Punteo:** se pega el mensaje (botón "Pegar" o mantener apretado el cuadro) y se ve cuántas noticias y títulos encontró.
+2. **Fotos:** una tarjeta por noticia con su botón "＋ Fotos"; "Armar placas" se habilita cuando todas tienen al menos una.
+3. **Revisar:** placas agrupadas por noticia. **Tocar una placa** abre el editor a pantalla completa: elegir otro título del punteo, escribir uno propio, elegir otra foto o subir una nueva, con vista previa en vivo; "‹ ›" pasan a la placa vecina y "Guardar esta placa" la comparte o descarga sola.
+- Las placas cambiadas a mano se marcan "Cambiada" y **"Volver a mezclar" las respeta** (solo re-reparte las demás). "Volver a la original" deshace el cambio.
+- Si un título no entra, la placa se marca en rojo y aparece un aviso con el botón "Corregir".
+- El botón "atrás" del celular vuelve al paso anterior o cierra el editor; si hay fotos cargadas, el navegador pide confirmar antes de salir de la página.
+- El historial guarda también los textos propios (`texto`) y qué placas se cambiaron a mano (`a_mano`).

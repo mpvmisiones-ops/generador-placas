@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=5">
+  <link rel="stylesheet" href="css/app.css?v=6">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
@@ -62,29 +62,48 @@
       <nav class="pestanas" id="pestanas"></nav>
 
       <div class="seccion" data-seccion="generar">
-        <div class="tarjeta">
-          <h2><span class="paso">1</span> Pegá el punteo</h2>
-          <textarea id="g-punteo" rows="8" placeholder="Pegá acá el mensaje de WhatsApp. Las noticias se separan con /// y los títulos van entre *asteriscos*."></textarea>
-          <div id="g-resumen"></div>
-        </div>
-        <div class="tarjeta">
-          <h2><span class="paso">2</span> Fotos de cada noticia</h2>
-          <p class="suave">Podés cargar varias fotos por noticia: se reparten entre los medios.</p>
-          <div id="g-fotos"></div>
-        </div>
-        <div class="tarjeta">
-          <h2><span class="paso">3</span> Armar y descargar</h2>
-          <p class="error" id="g-falta"></p>
-          <button class="btn btn-grande btn-principal" id="g-armar" disabled>Armar placas</button>
-          <p class="suave" id="g-progreso" role="status" hidden></p>
-          <div id="g-revisar" hidden>
-            <div class="g-acciones">
-              <button class="btn btn-grande btn-principal" id="g-zip">Descargar todo (ZIP)</button>
-              <button class="btn btn-grande btn-borde" id="g-mezclar">Volver a mezclar</button>
+        <!-- Pantalla del productor (Etapa 3): un paso por vez, pensada primero para el celular -->
+        <nav class="g-pasos" id="g-pasos" aria-label="Pasos">
+          <button type="button" data-ir="1"><span>1</span> Punteo</button>
+          <button type="button" data-ir="2"><span>2</span> Fotos</button>
+          <button type="button" data-ir="3"><span>3</span> Revisar</button>
+        </nav>
+
+        <div class="g-paso" data-paso="1">
+          <div class="tarjeta">
+            <h2>Pegá el punteo</h2>
+            <p class="suave">Las noticias se separan con /// y los títulos van entre *asteriscos*.</p>
+            <textarea id="g-punteo" rows="8" placeholder="Pegá acá el mensaje de WhatsApp"></textarea>
+            <div class="g-fila-chica">
+              <button type="button" class="btn btn-chico btn-borde" id="g-pegar">Pegar</button>
+              <button type="button" class="btn btn-chico btn-borde" id="g-borrar">Borrar</button>
             </div>
-            <div class="g-placas" id="g-placas"></div>
+            <div id="g-resumen"></div>
           </div>
         </div>
+
+        <div class="g-paso" data-paso="2" hidden>
+          <div class="tarjeta">
+            <h2>Fotos de cada noticia</h2>
+            <p class="suave">Podés cargar varias fotos por noticia: se reparten entre los medios.</p>
+            <div id="g-fotos"></div>
+          </div>
+        </div>
+
+        <div class="g-paso" data-paso="3" hidden>
+          <div class="tarjeta">
+            <h2>Revisá las placas</h2>
+            <p class="suave">Tocá una placa para cambiarle el título o la foto.</p>
+            <p class="suave" id="g-progreso" role="status"></p>
+            <div class="g-problemas" id="g-problemas" hidden>
+              <span id="g-problemas-txt"></span>
+              <button type="button" class="btn btn-chico btn-principal" id="g-corregir">Corregir</button>
+            </div>
+            <div id="g-placas"></div>
+          </div>
+        </div>
+
+        <div class="g-pie" id="g-pie"></div>
       </div>
 
       <div class="seccion" data-seccion="usuarios" hidden>
@@ -145,15 +164,44 @@
     </form>
   </dialog>
 
+  <!-- Editor de una placa (Etapa 3) -->
+  <dialog id="dlg-placa" class="hoja" aria-labelledby="e-medio">
+    <div class="hoja-cab">
+      <button type="button" class="btn btn-chico btn-borde" id="e-ant" aria-label="Placa anterior">‹</button>
+      <div class="hoja-titulo"><strong id="e-medio"></strong><span class="suave" id="e-noticia"></span></div>
+      <button type="button" class="btn btn-chico btn-borde" id="e-sig" aria-label="Placa siguiente">›</button>
+      <button type="button" class="btn btn-chico btn-principal" id="e-listo">Listo</button>
+    </div>
+    <div class="hoja-cuerpo">
+      <div class="e-vista">
+        <canvas id="e-canvas" width="1080" height="1350"></canvas>
+        <p class="error" id="e-entra" role="status"></p>
+      </div>
+      <div class="e-controles">
+        <h3>Título</h3>
+        <div class="e-opciones" id="e-titulos"></div>
+        <label>Texto de esta placa
+          <textarea id="e-texto" rows="3"></textarea>
+        </label>
+        <h3>Foto</h3>
+        <div class="g-miniaturas" id="e-fotos"></div>
+        <div class="e-acciones">
+          <button type="button" class="btn btn-borde" id="e-guardar">Guardar esta placa</button>
+          <button type="button" class="btn btn-borde" id="e-original" hidden>Volver a la original</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <div class="aviso" id="aviso" role="status" hidden></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="js/config.js?v=5"></script>
-  <script src="js/placas.js?v=5"></script>
-  <script src="js/generar.js?v=5"></script>
-  <script src="js/plantillas.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/config.js?v=6"></script>
+  <script src="js/placas.js?v=6"></script>
+  <script src="js/generar.js?v=6"></script>
+  <script src="js/plantillas.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 </html>
