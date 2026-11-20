@@ -1,4 +1,5 @@
-// Generador de Placas · Etapa 1: login, roles y gestión de usuarios.
+// Generador de Placas · login, roles, pestañas y gestión de usuarios (Etapa 1).
+// El motor de placas está en js/placas.js; las pestañas Generar y Plantillas en js/generar.js y js/plantillas.js.
 (() => {
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -103,6 +104,8 @@
     $$("#pestanas button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
     $$(".seccion").forEach(s => s.hidden = s.dataset.seccion !== tab);
     if (tab === "usuarios") cargarUsuarios();
+    if (tab === "generar") window.Generar?.iniciar();
+    if (tab === "plantillas") window.Plantillas?.iniciar();
   }
 
   // ---------- Usuarios (solo admin) ----------

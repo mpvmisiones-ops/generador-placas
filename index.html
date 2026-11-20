@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=3">
+  <link rel="stylesheet" href="css/app.css?v=4">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
@@ -63,8 +63,27 @@
 
       <div class="seccion" data-seccion="generar">
         <div class="tarjeta">
-          <h2>Generar placas</h2>
-          <p class="suave">Acá van los 3 pasos: pegar el punteo, cargar las fotos y descargar. Se construye en la Etapa 3.</p>
+          <h2><span class="paso">1</span> Pegá el punteo</h2>
+          <textarea id="g-punteo" rows="8" placeholder="Pegá acá el mensaje de WhatsApp. Las noticias se separan con /// y los títulos van entre *asteriscos*."></textarea>
+          <div id="g-resumen"></div>
+        </div>
+        <div class="tarjeta">
+          <h2><span class="paso">2</span> Fotos de cada noticia</h2>
+          <p class="suave">Podés cargar varias fotos por noticia: se reparten entre los medios.</p>
+          <div id="g-fotos"></div>
+        </div>
+        <div class="tarjeta">
+          <h2><span class="paso">3</span> Armar y descargar</h2>
+          <p class="error" id="g-falta"></p>
+          <button class="btn btn-grande btn-principal" id="g-armar" disabled>Armar placas</button>
+          <p class="suave" id="g-progreso" role="status" hidden></p>
+          <div id="g-revisar" hidden>
+            <div class="g-acciones">
+              <button class="btn btn-grande btn-principal" id="g-zip">Descargar todo (ZIP)</button>
+              <button class="btn btn-grande btn-borde" id="g-mezclar">Volver a mezclar</button>
+            </div>
+            <div class="g-placas" id="g-placas"></div>
+          </div>
         </div>
       </div>
 
@@ -94,7 +113,11 @@
       </div>
 
       <div class="seccion" data-seccion="plantillas" hidden>
-        <div class="tarjeta"><h2>Plantillas de los medios</h2><p class="suave">Se construye en la Etapa 4.</p></div>
+        <div class="tarjeta">
+          <h2>Plantillas de los medios</h2>
+          <p class="suave">Subí la capa PNG de cada medio (1080×1350, fondo transparente, sin foto ni título). Mientras no tenga capa, se usa un boceto aproximado. Ajustar zonas y tipografías llega en la Etapa 4.</p>
+          <ul class="lista-usuarios p-lista" id="p-lista"></ul>
+        </div>
       </div>
 
       <div class="seccion" data-seccion="historial" hidden>
@@ -126,7 +149,11 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
-  <script src="js/config.js?v=3"></script>
-  <script src="js/app.js?v=3"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="js/config.js?v=4"></script>
+  <script src="js/placas.js?v=4"></script>
+  <script src="js/generar.js?v=4"></script>
+  <script src="js/plantillas.js?v=4"></script>
+  <script src="js/app.js?v=4"></script>
 </body>
 </html>
