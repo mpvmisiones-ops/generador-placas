@@ -52,6 +52,13 @@ create policy "perfil propio o admin" on public.perfiles
   for select to authenticated using (id = auth.uid() or public.es_admin());
 -- Sin políticas de insert/update/delete: solo la función del servidor (admin-usuarios) modifica perfiles.
 
+-- ¿Ya existe algún usuario? (la web lo usa para mostrar la pantalla de primera configuración)
+create or replace function public.hay_usuarios()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.perfiles);
+$$;
+grant execute on function public.hay_usuarios() to anon, authenticated;
+
 -- ---------- Medios / plantillas ----------
 create table if not exists public.medios (
   id           text primary key,             -- ej: 'muy-temprano'

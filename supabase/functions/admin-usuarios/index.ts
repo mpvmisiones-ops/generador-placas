@@ -24,6 +24,23 @@ Deno.serve(async (req) => {
     if (!secreta) return responder({ error: "Falta la clave secreta del servidor." }, 500);
     const admin = createClient(url, secreta, { auth: { persistSession: false, autoRefreshToken: false } });
 
+    const cuerpo = await req.json();
+
+    // 0) Primera configuración: crear el primer admin. Solo funciona si NO existe ningún usuario.
+    if (cuerpo.accion === "inicializar") {
+      const { count } = await admin.from("perfiles").select("id", { count: "exact", head: true });
+      if ((count ?? 0) > 0) return responder({ error: "La herramienta ya está configurada." }, 403);
+      const usuario = String(cuerpo.usuario ?? "").trim().toLowerCase();
+      if (!/^[a-z0-9._-]{3,30}$/.test(usuario)) return responder({ error: "El usuario debe tener de 3 a 30 letras o números, sin espacios ni acentos." }, 400);
+      if (String(cuerpo.password ?? "").length < 8) return responder({ error: "La contraseña debe tener al menos 8 caracteres." }, 400);
+      const { error } = await admin.auth.admin.createUser({
+        email: `${usuario}@${DOMINIO}`, password: cuerpo.password, email_confirm: true,
+        user_metadata: { nombre: String(cuerpo.nombre ?? "").trim() }, app_metadata: { rol: "admin" },
+      });
+      if (error) return responder({ error: error.message }, 400);
+      return responder({ ok: true });
+    }
+
     // 1) ¿Quién llama? Debe ser admin activo.
     const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
     const { data: quien } = await admin.auth.getUser(token);
@@ -31,7 +48,7 @@ Deno.serve(async (req) => {
     const { data: perfil } = await admin.from("perfiles").select("rol, activo").eq("id", quien.user.id).single();
     if (!perfil || perfil.rol !== "admin" || !perfil.activo) return responder({ error: "Solo el administrador puede hacer esto." }, 403);
 
-    const { accion, ...d } = await req.json();
+    const { accion, ...d } = cuerpo;
 
     if (accion === "listar") {
       const { data, error } = await admin.from("perfiles").select("id, usuario, nombre, rol, activo, creado_en").order("usuario");

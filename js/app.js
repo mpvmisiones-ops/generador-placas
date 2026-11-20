@@ -4,7 +4,7 @@
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const C = window.CONFIG || {};
 
-  const vistas = ["vista-config", "vista-login", "vista-panel"];
+  const vistas = ["vista-config", "vista-inicio", "vista-login", "vista-panel"];
   const mostrar = (id) => { vistas.forEach(v => $("#" + v).hidden = v !== id); $("#barra").hidden = id !== "vista-panel"; };
 
   let avisoTimer;
@@ -33,7 +33,11 @@
 
   async function entrarConSesion() {
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) { mostrar("vista-login"); return; }
+    if (!session) {
+      const { data: hay } = await sb.rpc("hay_usuarios");
+      mostrar(hay === false ? "vista-inicio" : "vista-login");
+      return;
+    }
     const { data, error } = await sb.from("perfiles").select("*").eq("id", session.user.id).single();
     if (error || !data) { await sb.auth.signOut(); mostrar("vista-login"); $("#login-error").textContent = "Tu usuario no tiene perfil. Avisale al administrador."; return; }
     if (!data.activo) { await sb.auth.signOut(); mostrar("vista-login"); $("#login-error").textContent = "Tu usuario está pausado. Avisale al administrador."; return; }
@@ -58,6 +62,27 @@
       return;
     }
     f.password.value = "";
+    entrarConSesion();
+  });
+
+  // ---------- Primera configuración ----------
+  $("#form-inicio").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = e.target, btn = $("button[type=submit]", f), err = $("#inicio-error");
+    err.textContent = "";
+    if (f.password.value !== f.password2.value) { err.textContent = "Las contraseñas no coinciden."; return; }
+    btn.disabled = true; btn.textContent = "Creando…";
+    const usuario = f.usuario.value.trim().toLowerCase();
+    const { data, error } = await sb.functions.invoke("admin-usuarios", {
+      body: { accion: "inicializar", usuario, nombre: f.nombre.value, password: f.password.value },
+    });
+    let msg = data?.error;
+    if (error) { try { msg = (await error.context.json()).error; } catch { msg = error.message; } }
+    if (msg) { err.textContent = msg; btn.disabled = false; btn.textContent = "Crear administrador"; return; }
+    const r = await sb.auth.signInWithPassword({ email: `${usuario}@${C.DOMINIO_USUARIOS}`, password: f.password.value });
+    f.reset(); btn.disabled = false; btn.textContent = "Crear administrador";
+    if (r.error) { mostrar("vista-login"); return; }
+    aviso("¡Listo! Ya sos administrador.");
     entrarConSesion();
   });
 

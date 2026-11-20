@@ -42,6 +42,21 @@
       </form>
     </section>
 
+    <!-- PRIMERA CONFIGURACIÓN (solo si no hay ningún usuario) -->
+    <section class="vista" id="vista-inicio" hidden>
+      <form class="tarjeta centrada" id="form-inicio">
+        <div class="logo-login">▣</div>
+        <h1>Primera configuración</h1>
+        <p class="suave">Creá el usuario administrador. Esta pantalla aparece una sola vez.</p>
+        <label>Usuario <input name="usuario" autocapitalize="none" spellcheck="false" placeholder="ej: admin" required autocomplete="username"></label>
+        <label>Nombre <input name="nombre" placeholder="ej: Martín"></label>
+        <label>Contraseña <input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+        <label>Repetir contraseña <input name="password2" type="password" minlength="8" required autocomplete="new-password"></label>
+        <p class="error" id="inicio-error" role="alert"></p>
+        <button class="btn btn-grande btn-principal" type="submit">Crear administrador</button>
+      </form>
+    </section>
+
     <!-- PANEL (productor y admin) -->
     <section class="vista" id="vista-panel" hidden>
       <nav class="pestanas" id="pestanas"></nav>
