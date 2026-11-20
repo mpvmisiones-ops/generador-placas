@@ -244,6 +244,14 @@ dialog.hoja[open] { display: flex; flex-direction: column; }
 .e-foto img { width: 78px; height: 78px; object-fit: cover; display: block; border-radius: 10px; border: 3px solid transparent; }
 .e-foto[aria-pressed="true"] img { border-color: var(--acento); }
 .e-acciones { display: grid; gap: .5rem; margin-top: 1.2rem; }
+.e-ajustes { display: grid; gap: .2rem; }
+.e-ajustes label { margin: 0; display: grid; grid-template-columns: 1fr auto; align-items: center; font-size: .92rem; }
+.e-ajustes output { font-weight: 700; color: var(--acento-osc); font-variant-numeric: tabular-nums; }
+.e-ajustes input[type=range] { grid-column: 1 / -1; width: 100%; margin: .2rem 0 .5rem; padding: 0; border: 0; height: 32px; accent-color: var(--acento); }
+.e-fila-ajuste { display: flex; flex-wrap: wrap; gap: .5rem; }
+.e-aj-guardar { width: 100%; margin-top: .5rem; }
+.e-nota { margin: .5rem 0 0; font-size: .9rem; font-weight: 600; color: var(--ok); min-height: 1.2em; }
+.e-nota.mal { color: var(--peligro); }
 
 @media (min-width: 760px) {
   dialog.hoja { margin: auto; width: min(1000px, calc(100vw - 48px)); height: min(780px, calc(100dvh - 48px)); border-radius: var(--radio); }

@@ -185,7 +185,7 @@
   const medioDe = (pl) => estado.medios.find(m => m.id === pl.medio);
   const fotoDe = (pl) => estado.noticias[pl.noticia]?.fotos.find(f => f.id === pl.fotoId);
   const tituloDe = (pl) => pl.texto ?? estado.noticias[pl.noticia].titulos[pl.titulo];
-  const esOriginal = (pl) => pl.texto == null && pl.titulo === pl.orig.titulo && pl.fotoId === pl.orig.fotoId;
+  const esOriginal = (pl) => pl.texto == null && pl.titulo === pl.orig.titulo && pl.fotoId === pl.orig.fotoId && !P.hayAjuste(pl.ajuste);
 
   async function armar(mezclar) {
     if (estado.armando) return;
@@ -209,7 +209,7 @@
         pl.orig = { titulo: pl.titulo, fotoId: pl.fotoId };
         const v = aMano.get(p.noticia + "|" + p.medio);
         if (v && v.titulo < n.titulos.length && n.fotos.some(f => f.id === v.fotoId)) {
-          Object.assign(pl, { titulo: v.titulo, fotoId: v.fotoId, texto: v.texto });
+          Object.assign(pl, { titulo: v.titulo, fotoId: v.fotoId, texto: v.texto, ajuste: v.ajuste });
           if (!esOriginal(pl)) conservadas++;
         }
         return pl;
@@ -252,7 +252,7 @@
   // Dibuja una placa, guarda su JPG y actualiza su miniatura en la grilla.
   async function dibujarPlaca(i, canvas) {
     const pl = estado.placas[i];
-    P.componer({ medio: medioDe(pl), foto: fotoDe(pl)?.bmp, titulo: tituloDe(pl), canvas });
+    P.componer({ medio: medioDe(pl), foto: fotoDe(pl)?.bmp, titulo: tituloDe(pl), canvas, ajuste: pl.ajuste });
     pl.entra = canvas.dataset.entra === "1";
     pl.blob = await P.aBlob(canvas);
     if (pl.url) URL.revokeObjectURL(pl.url);
@@ -311,16 +311,69 @@
     });
     $("#e-original").addEventListener("click", () => {
       const pl = estado.placas[estado.editando];
-      Object.assign(pl, { titulo: pl.orig.titulo, fotoId: pl.orig.fotoId, texto: null });
+      Object.assign(pl, { titulo: pl.orig.titulo, fotoId: pl.orig.fotoId, texto: null, ajuste: null });
       $("#e-texto").value = tituloDe(pl);
       cambiado();
     });
     $("#e-guardar").addEventListener("click", guardarUna);
+    // Acomodar texto: tamaño, ancho y posición de la caja del título en esta placa.
+    $("#e-ajustes").addEventListener("input", (e) => {
+      const r = e.target.closest("[data-a]"); if (!r) return;
+      const pl = estado.placas[estado.editando];
+      pl.ajuste = { ...(pl.ajuste || P.SIN_AJUSTE), [r.dataset.a]: +r.value };
+      pl.sucia = true; pintarAjustes(); $("#e-original").hidden = esOriginal(pl); previa();
+    });
+    $("#e-aj-cero").addEventListener("click", () => { estado.placas[estado.editando].ajuste = null; cambiado(); });
+    $("#e-aj-todas").addEventListener("click", aplicarATodas);
+    $("#e-aj-guardar").addEventListener("click", guardarDiseno);
+  }
+
+  function nota(t, mal) { const p = $("#e-nota"); p.textContent = t; p.classList.toggle("mal", !!mal); }
+  function pintarAjustes() {
+    const a = estado.placas[estado.editando].ajuste || P.SIN_AJUSTE;
+    document.querySelectorAll("#e-ajustes [data-a]").forEach(r => { r.value = a[r.dataset.a]; });
+    document.querySelectorAll("#e-ajustes [data-v]").forEach(o => {
+      const k = o.dataset.v, v = a[k];
+      o.textContent = k === "escala" || k === "ancho" ? v + " %" : (v > 0 ? "+" : "") + v;
+    });
+  }
+  // Copia el ajuste de esta placa a todas las placas del mismo medio.
+  function aplicarATodas() {
+    const i = estado.editando, pl = estado.placas[i];
+    let n = 0;
+    estado.placas.forEach((o, k) => {
+      if (k === i || o.medio !== pl.medio) return;
+      o.ajuste = pl.ajuste ? { ...pl.ajuste } : null; o.sucia = true; n++;
+      confirmar(k);
+    });
+    nota(n ? `Listo: se aplicó a ${plural(n, "placa más", "placas más")} de ${medioDe(pl).nombre}.` : "No hay otras placas de este medio.", !n);
+  }
+  // Solo admin: guarda la caja ajustada como diseño del medio (tabla "medios"), para todas las tandas.
+  async function guardarDiseno() {
+    const i = estado.editando, pl = estado.placas[i], m = medioDe(pl), b = $("#e-aj-guardar");
+    if (!P.hayAjuste(pl.ajuste)) return nota("Primero acomodá el texto con los controles.", true);
+    if (!confirm(`¿Guardar esta posición y tamaño de texto como diseño fijo de ${m.nombre}? Se va a usar en todas las placas de ahora en adelante.`)) return;
+    const titulo = P.cajaAjustada(m.config.titulo, pl.ajuste);
+    b.disabled = true;
+    let error;
+    try { ({ error } = await window.sb.from("medios").update({ config: { ...m.config, titulo }, actualizado_en: new Date().toISOString() }).eq("id", m.id)); }
+    catch (e) { error = e; }
+    b.disabled = false;
+    if (error) return nota("No se pudo guardar: " + error.message, true);
+    m.config = { ...m.config, titulo };
+    // El ajuste ya quedó dentro del diseño: se quita de todas las placas de este medio.
+    estado.placas.forEach((o, k) => {
+      if (o.medio !== m.id) return;
+      o.ajuste = null; o.sucia = true; if (k !== i) confirmar(k);
+    });
+    pintarEditor();
+    nota(`Guardado: ${m.nombre} usa este texto de ahora en adelante.`);
   }
 
   function abrirEditor(i) {
     const dlg = $("#dlg-placa");
     estado.editando = i;
+    nota("");
     $("#e-texto").value = tituloDe(estado.placas[i]);
     pintarEditor();
     if (!dlg.open) {
@@ -347,6 +400,9 @@
       `<button type="button" class="e-foto" data-f="${f.id}" aria-pressed="${f.id === pl.fotoId}" aria-label="Foto ${k + 1}"><img src="${f.url}" alt=""></button>`).join("") +
       '<label class="g-mas"><input type="file" accept="image/*" multiple hidden><b>＋</b>Subir</label>';
     $("#e-original").hidden = esOriginal(pl);
+    document.querySelectorAll(".e-medio-nombre").forEach(s => s.textContent = m.nombre);
+    $("#e-aj-guardar").hidden = window.perfil?.rol !== "admin" || !window.sb;
+    pintarAjustes();
     previa();
   }
   function previa() {
@@ -354,7 +410,7 @@
     previa.r = requestAnimationFrame(() => {
       const pl = estado.placas[estado.editando]; if (!pl) return;
       const c = $("#e-canvas");
-      P.componer({ medio: medioDe(pl), foto: fotoDe(pl)?.bmp, titulo: tituloDe(pl), canvas: c });
+      P.componer({ medio: medioDe(pl), foto: fotoDe(pl)?.bmp, titulo: tituloDe(pl), canvas: c, ajuste: pl.ajuste });
       $("#e-entra").textContent = c.dataset.entra === "1" ? "" : "El título no entra: acortalo un poco o elegí otro.";
     });
   }
@@ -407,7 +463,7 @@
       placas: estado.placas.map(pl => ({
         noticia: pl.noticia, medio: pl.medio, titulo: pl.titulo,
         foto: estado.noticias[pl.noticia].fotos.findIndex(f => f.id === pl.fotoId),
-        ...(pl.texto != null ? { texto: pl.texto } : {}), ...(esOriginal(pl) ? {} : { a_mano: true }),
+        ...(pl.texto != null ? { texto: pl.texto } : {}), ...(P.hayAjuste(pl.ajuste) ? { ajuste: pl.ajuste } : {}), ...(esOriginal(pl) ? {} : { a_mano: true }),
       })),
     };
     const clave = JSON.stringify(resultado);

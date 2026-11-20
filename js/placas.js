@@ -18,7 +18,7 @@
     M("radar-legislativo", "Radar Legislativo", 4, T(134, 854, 838, 404, "Open Sans", 800, 50, "#cee6e9", 1.11, -0.052), { x: 0, y: 0, w: 1080, h: 826 }),
     M("misiones-biodiversidad", "Misiones Biodiversidad", 5, T(174, 829, 728, 375, "Poppins", 700, 50, "#6c0c0b", 1.11, -0.052), { x: 0, y: 0, w: 1080, h: 846 }),
     M("central-de-noticias", "Central de Noticias", 6, T(78, 958, 949, 364, "Lato", 900, 58, "#ffffff", 1.11, -0.052), { x: 0, y: 108, w: 1080, h: 821 }),
-    M("zona-random", "Zona Random", 7, T(404, 729, 633, 326, "Bebas Neue", 700, 73, "#000000", 1.09, -0.01), { x: 0, y: 0, w: 914, h: 1350 }),
+    M("zona-random", "Zona Random", 7, T(405, 705, 555, 280, "Bebas Neue", 700, 73, "#000000", 1.09, -0.01), { x: 0, y: 0, w: 914, h: 1350 }),
     M("misiones-digital", "Misiones Digital", 8, T(160, 855, 665, 420, "Archivo Black", 400, 44, "#ffffff", 1.11, -0.052), { x: 229, y: 0, w: 851, h: 1350 }),
     M("hola-misiones", "Hola Misiones", 9, T(82, 926, 916, 291, "Archivo Black", 400, 44, "#ffffff", 1.11, -0.052), { x: 0, y: 0, w: 1080, h: 801 }),
     M("canal-12", "Canal 12", 10, T(108, 887, 916, 294, "Inter", 900, 65, "#ffffff", 1.11, 0), { x: 0, y: 0, w: 1080, h: 801 }),
@@ -256,8 +256,20 @@
     return med;
   }
 
+  // Ajuste del texto de una placa: { escala %, ancho %, dx px, dy px } sobre la caja del medio.
+  const SIN_AJUSTE = { escala: 100, ancho: 100, dx: 0, dy: 0 };
+  const hayAjuste = (a) => !!a && (a.escala !== 100 || a.ancho !== 100 || a.dx !== 0 || a.dy !== 0);
+  function cajaAjustada(t, a) {
+    if (!hayAjuste(a)) return t;
+    return { ...t, x: Math.round(t.x + a.dx), y: Math.round(t.y + a.dy), w: Math.round(t.w * a.ancho / 100), tam: Math.round(t.tam * a.escala / 100) };
+  }
+  function medioAjustado(m, a) {
+    return hayAjuste(a) ? { ...m, config: { ...m.config, titulo: cajaAjustada(m.config.titulo, a) } } : m;
+  }
+
   // Arma una placa completa en el canvas dado (o en uno nuevo) y lo devuelve.
-  function componer({ medio, foto, titulo, canvas }) {
+  function componer({ medio, foto, titulo, canvas, ajuste }) {
+    medio = medioAjustado(medio, ajuste);
     const c = canvas || document.createElement("canvas");
     c.width = ANCHO; c.height = ALTO;
     const ctx = c.getContext("2d");
@@ -280,5 +292,5 @@
     return zip.generateAsync({ type: "blob", compression: "STORE" }); // los JPG ya vienen comprimidos
   }
 
-  window.Placas = { ANCHO, ALTO, MEDIOS_DEFECTO, leerPunteo, repartir, cargarMedios, prepararMedios, leerFoto, componer, medirTitulo, aBlob, armarZip, nombreArchivo };
+  window.Placas = { ANCHO, ALTO, MEDIOS_DEFECTO, SIN_AJUSTE, hayAjuste, cajaAjustada, leerPunteo, repartir, cargarMedios, prepararMedios, leerFoto, componer, medirTitulo, aBlob, armarZip, nombreArchivo };
 })();

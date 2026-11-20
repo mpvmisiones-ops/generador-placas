@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=8">
+  <link rel="stylesheet" href="css/app.css?v=10">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
@@ -188,6 +188,19 @@
         </label>
         <h3>Foto</h3>
         <div class="g-miniaturas" id="e-fotos"></div>
+        <h3>Acomodar texto</h3>
+        <div class="e-ajustes" id="e-ajustes">
+          <label>Tamaño <output data-v="escala"></output><input type="range" data-a="escala" min="50" max="130" step="1"></label>
+          <label>Ancho de la caja <output data-v="ancho"></output><input type="range" data-a="ancho" min="50" max="120" step="1"></label>
+          <label>Mover ↔ <output data-v="dx"></output><input type="range" data-a="dx" min="-300" max="300" step="2"></label>
+          <label>Mover ↕ <output data-v="dy"></output><input type="range" data-a="dy" min="-500" max="300" step="2"></label>
+        </div>
+        <div class="e-fila-ajuste">
+          <button type="button" class="btn btn-chico btn-borde" id="e-aj-cero">Restablecer</button>
+          <button type="button" class="btn btn-chico btn-borde" id="e-aj-todas">Aplicar a todas las de <span class="e-medio-nombre"></span></button>
+        </div>
+        <button type="button" class="btn btn-chico btn-borde e-aj-guardar" id="e-aj-guardar" hidden>Guardar como diseño fijo de <span class="e-medio-nombre"></span></button>
+        <p class="e-nota" id="e-nota" role="status"></p>
         <div class="e-acciones">
           <button type="button" class="btn btn-borde" id="e-guardar">Guardar esta placa</button>
           <button type="button" class="btn btn-borde" id="e-original" hidden>Volver a la original</button>
@@ -214,10 +227,10 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="js/config.js?v=8"></script>
-  <script src="js/placas.js?v=8"></script>
-  <script src="js/generar.js?v=8"></script>
-  <script src="js/plantillas.js?v=8"></script>
-  <script src="js/app.js?v=8"></script>
+  <script src="js/config.js?v=10"></script>
+  <script src="js/placas.js?v=10"></script>
+  <script src="js/generar.js?v=10"></script>
+  <script src="js/plantillas.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
 </body>
 </html>
