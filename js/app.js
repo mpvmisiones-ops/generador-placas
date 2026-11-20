@@ -90,19 +90,34 @@
   $("#btn-salir").addEventListener("click", async () => { await sb.auth.signOut(); perfil = null; mostrar("vista-login"); });
 
   // ---------- Pestañas ----------
+  // La pantalla principal es "Generar placas". La rueda de la barra abre la configuración
+  // (Usuarios, Plantillas, Historial) si sos admin; si no, ofrece entrar con un usuario admin.
   function armarPestanas() {
-    const tabs = perfil.rol === "admin"
-      ? [["generar", "Generar placas"], ["usuarios", "Usuarios"], ["plantillas", "Plantillas"], ["historial", "Historial"]]
-      : [["generar", "Generar placas"]];
     const nav = $("#pestanas");
-    nav.hidden = tabs.length < 2;
-    nav.innerHTML = tabs.map(([id, t]) => `<button data-tab="${id}">${t}</button>`).join("");
+    nav.innerHTML = '<button data-tab="generar" class="pestana-volver">← Generar placas</button>' +
+      [["usuarios", "Usuarios"], ["plantillas", "Plantillas"], ["historial", "Historial"]].map(([id, t]) => `<button data-tab="${id}">${t}</button>`).join("");
     $$("button", nav).forEach(b => b.addEventListener("click", () => irA(b.dataset.tab)));
     irA("generar");
   }
+  $("#btn-config").addEventListener("click", () => {
+    if (perfil?.rol === "admin") irA($("#btn-config").getAttribute("aria-pressed") === "true" ? "generar" : "usuarios");
+    else { $("#dlg-config").returnValue = ""; $("#dlg-config").showModal(); }
+  });
+  $("#dlg-config").addEventListener("close", async () => {
+    if ($("#dlg-config").returnValue !== "admin") return;
+    await sb.auth.signOut(); perfil = null; mostrar("vista-login");
+    $("#login-error").textContent = "Entrá con tu usuario administrador.";
+    $("#form-login").usuario.focus();
+  });
   function irA(tab) {
+    const config = tab !== "generar" && perfil?.rol === "admin";
+    if (!config) tab = "generar";
+    $("#pestanas").hidden = !config;
+    $("#btn-config").setAttribute("aria-pressed", config);
+    $("#btn-config").title = config ? "Volver a generar placas" : "Configuración";
     $$("#pestanas button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
     $$(".seccion").forEach(s => s.hidden = s.dataset.seccion !== tab);
+    window.scrollTo({ top: 0 });
     if (tab === "usuarios") cargarUsuarios();
     if (tab === "generar") window.Generar?.iniciar();
     if (tab === "plantillas") window.Plantillas?.iniciar();

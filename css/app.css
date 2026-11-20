@@ -36,6 +36,11 @@ code { background: #eee9df; padding: .1em .35em; border-radius: 6px; }
 .marca { font-weight: 800; letter-spacing: -.01em; }
 .barra-usuario { display: flex; align-items: center; gap: .7rem; font-size: .9rem; }
 .barra .btn-borde { color: #fff; border-color: rgba(255,255,255,.4); }
+.btn-rueda { display: inline-grid; place-items: center; padding: 0; width: 44px; min-height: 44px; }
+.btn-rueda svg { transition: transform .3s; }
+.btn-rueda[aria-pressed="true"] { background: #fff; color: var(--tinta); border-color: #fff; }
+.btn-rueda[aria-pressed="true"] svg { transform: rotate(60deg); }
+.pestanas .pestana-volver { background: transparent; border-style: dashed; }
 
 main { max-width: 860px; margin: 0 auto; padding: 16px; }
 .tarjeta {

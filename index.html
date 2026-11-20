@@ -6,13 +6,16 @@
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=6">
+  <link rel="stylesheet" href="css/app.css?v=7">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
     <div class="marca">Generador de Placas</div>
     <div class="barra-usuario">
       <span id="barra-nombre"></span>
+      <button class="btn btn-chico btn-borde btn-rueda" id="btn-config" aria-label="Configuración" title="Configuración" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
       <button class="btn btn-chico btn-borde" id="btn-salir">Salir</button>
     </div>
   </header>
@@ -193,15 +196,28 @@
     </div>
   </dialog>
 
+  <!-- Rueda de configuración para quien no es administrador -->
+  <dialog id="dlg-config">
+    <form method="dialog">
+      <h2>Configuración</h2>
+      <p>La configuración (usuarios, plantillas e historial) es solo para administradores.</p>
+      <p class="suave">Si tenés un usuario administrador, entrá con él. Las placas que estás armando no se pierden.</p>
+      <div class="fila fila-fin">
+        <button class="btn btn-borde" value="cancelar">Cancelar</button>
+        <button class="btn btn-principal" value="admin">Entrar como admin</button>
+      </div>
+    </form>
+  </dialog>
+
   <div class="aviso" id="aviso" role="status" hidden></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="js/config.js?v=6"></script>
-  <script src="js/placas.js?v=6"></script>
-  <script src="js/generar.js?v=6"></script>
-  <script src="js/plantillas.js?v=6"></script>
-  <script src="js/app.js?v=6"></script>
+  <script src="js/config.js?v=7"></script>
+  <script src="js/placas.js?v=7"></script>
+  <script src="js/generar.js?v=7"></script>
+  <script src="js/plantillas.js?v=7"></script>
+  <script src="js/app.js?v=7"></script>
 </body>
 </html>
