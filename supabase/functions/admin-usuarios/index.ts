@@ -16,7 +16,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const url = Deno.env.get("SUPABASE_URL")!;
-    const admin = createClient(url, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    // Clave secreta que Supabase inyecta en el servidor (formato viejo o nuevo).
+    let secreta = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    if (!secreta) {
+      try { const k = JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS") ?? "{}"); secreta = k.default ?? Object.values(k)[0] ?? ""; } catch { /* nada */ }
+    }
+    if (!secreta) return responder({ error: "Falta la clave secreta del servidor." }, 500);
+    const admin = createClient(url, secreta, { auth: { persistSession: false, autoRefreshToken: false } });
 
     // 1) ¿Quién llama? Debe ser admin activo.
     const token = (req.headers.get("Authorization") ?? "").replace("Bearer ", "");
