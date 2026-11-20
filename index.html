@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="css/app.css?v=3">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
@@ -125,7 +125,8 @@
   <div class="aviso" id="aviso" role="status" hidden></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/app.js"></script>
+  <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
+  <script src="js/config.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>
