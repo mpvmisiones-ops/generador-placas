@@ -31,6 +31,8 @@
   const sb = window.supabase.createClient(C.SUPABASE_URL, C.SUPABASE_KEY);
   window.sb = sb; // lo usan las próximas etapas
   let perfil = null;
+  let pideAdmin = false;     // se tocó "Entrar como admin" en la rueda
+  let entrandoAqui = false;  // el login lo hace esta pestaña (no otra)
 
   async function entrarConSesion() {
     const { data: { session } } = await sb.auth.getSession();
@@ -46,6 +48,11 @@
     $("#barra-nombre").textContent = (data.nombre || data.usuario) + (data.rol === "admin" ? " · Admin" : "");
     armarPestanas();
     mostrar("vista-panel");
+    if (pideAdmin) {
+      pideAdmin = false;
+      if (data.rol === "admin") irA("usuarios");
+      else aviso(`"${data.usuario}" es productor. Para la configuración entrá con el usuario administrador.`, true);
+    }
   }
 
   // ---------- Login ----------
@@ -54,7 +61,9 @@
     const f = e.target, btn = $("button[type=submit]", f), err = $("#login-error");
     err.textContent = ""; btn.disabled = true; btn.textContent = "Entrando…";
     const usuario = f.usuario.value.trim().toLowerCase();
+    entrandoAqui = true;
     const { error } = await sb.auth.signInWithPassword({ email: `${usuario}@${C.DOMINIO_USUARIOS}`, password: f.password.value });
+    entrandoAqui = false;
     btn.disabled = false; btn.textContent = "Entrar";
     if (error) {
       err.textContent = /banned/i.test(error.message) ? "Tu usuario está pausado. Avisale al administrador."
@@ -101,12 +110,14 @@
   }
   $("#btn-config").addEventListener("click", () => {
     if (perfil?.rol === "admin") irA($("#btn-config").getAttribute("aria-pressed") === "true" ? "generar" : "usuarios");
-    else { $("#dlg-config").returnValue = ""; $("#dlg-config").showModal(); }
+    else { $("#dlg-config-yo").textContent = `"${perfil?.usuario}"`; $("#dlg-config").returnValue = ""; $("#dlg-config").showModal(); }
   });
   $("#dlg-config").addEventListener("close", async () => {
     if ($("#dlg-config").returnValue !== "admin") return;
+    pideAdmin = true;
     await sb.auth.signOut(); perfil = null; mostrar("vista-login");
-    $("#login-error").textContent = "Entrá con tu usuario administrador.";
+    $("#form-login").reset(); // que no quede completado el usuario anterior
+    $("#login-error").textContent = "Entrá con el usuario administrador (no con el de productor).";
     $("#form-login").usuario.focus();
   });
   function irA(tab) {
@@ -200,6 +211,10 @@
     } catch (x) { $("#password-error").textContent = x.message; }
   });
 
-  sb.auth.onAuthStateChange((evento) => { if (evento === "SIGNED_OUT") mostrar("vista-login"); });
+  // La sesión es la misma en todas las pestañas: si se sale o se entra en otra, esta se acomoda sola.
+  sb.auth.onAuthStateChange((evento) => {
+    if (evento === "SIGNED_OUT") { perfil = null; mostrar("vista-login"); }
+    if (evento === "SIGNED_IN" && !entrandoAqui && !$("#vista-login").hidden) setTimeout(entrarConSesion); // fuera del aviso de Supabase
+  });
   entrarConSesion();
 })();

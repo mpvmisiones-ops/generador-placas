@@ -33,11 +33,13 @@ Deno.serve(async (req) => {
       const usuario = String(cuerpo.usuario ?? "").trim().toLowerCase();
       if (!/^[a-z0-9._-]{3,30}$/.test(usuario)) return responder({ error: "El usuario debe tener de 3 a 30 letras o números, sin espacios ni acentos." }, 400);
       if (String(cuerpo.password ?? "").length < 8) return responder({ error: "La contraseña debe tener al menos 8 caracteres." }, 400);
-      const { error } = await admin.auth.admin.createUser({
+      const { data: creado, error } = await admin.auth.admin.createUser({
         email: `${usuario}@${DOMINIO}`, password: cuerpo.password, email_confirm: true,
         user_metadata: { nombre: String(cuerpo.nombre ?? "").trim() }, app_metadata: { rol: "admin" },
       });
       if (error) return responder({ error: error.message }, 400);
+      // El trigger que crea el perfil corre antes de que Supabase guarde app_metadata: el rol se fija acá.
+      await admin.from("perfiles").update({ rol: "admin" }).eq("id", creado.user.id);
       return responder({ ok: true });
     }
 
@@ -69,6 +71,8 @@ Deno.serve(async (req) => {
         app_metadata: { rol },
       });
       if (error) return responder({ error: error.message.includes("already") ? "Ese usuario ya existe." : error.message }, 400);
+      // El trigger que crea el perfil corre antes de que Supabase guarde app_metadata: el rol se fija acá.
+      await admin.from("perfiles").update({ rol }).eq("id", data.user.id);
       return responder({ ok: true, id: data.user.id });
     }
 
