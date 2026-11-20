@@ -20,6 +20,7 @@ Las placas se componen por código en el navegador (canvas): foto + capa PNG del
 - **Punteo:** las noticias se separan con `///`; los títulos van entre `*asteriscos*`. Si una noticia no tiene asteriscos se usa su primera línea.
 - **Reparto:** cada medio en rotación recibe una combinación título + foto por noticia; se equilibra el uso y dos medios seguidos no repiten título ni foto. "Volver a mezclar" cambia el reparto.
 - **Placa:** fondo → foto recortada a su zona (tipo "cover") → capa PNG del medio → título. Si el título no entra, la letra se achica hasta 55 % y, si aun así no entra, la placa se marca en rojo.
-- **Sin capa PNG** se dibuja un boceto aproximado con la leyenda "BOCETO".
+- **Capas:** `capas/<medio>.png` (1080×1350, zona de foto transparente). Si el admin sube otra desde Plantillas (Supabase Storage), tiene prioridad. Si ninguna carga, se dibuja un boceto.
+- Las capas se armaron con `herramientas/armar_capas.py` a partir de 3 exportaciones gratuitas de Canva (fondo original, negro y blanco). Las 7 texturas prémium del Canva se redibujaron con código (parecidas, no idénticas).
 - **Oak Sans** (Interesante) se reemplaza por Plus Jakarta Sans hasta que se suba el archivo de la tipografía.
 - **ZIP:** una carpeta por medio, JPG 1080×1350. Al descargar se guarda el historial (solo textos).

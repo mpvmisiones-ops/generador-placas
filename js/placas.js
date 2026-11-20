@@ -1,9 +1,11 @@
 // Generador de Placas · Etapa 2: motor de placas.
 // Lee el punteo, reparte títulos y fotos entre medios y arma cada placa en canvas (1080 × 1350):
-// fondo → foto recortada a su zona → capa PNG del medio (o boceto si todavía no hay capa) → título.
+// fondo → foto recortada a su zona → capa PNG del medio → título.
+// Capa: la subida por el admin (Storage) o, si no hay, la de la carpeta capas/ del sitio; si falla, un boceto.
 // Uso: window.Placas (lo usa js/generar.js). No depende de la interfaz.
 (() => {
   const ANCHO = 1080, ALTO = 1350;
+  const VERSION_CAPAS = 1; // subir si se reemplazan los PNG de la carpeta capas/
 
   // ---------- Medios por defecto (copia de supabase/esquema.sql) ----------
   // Se usan si la tabla "medios" no responde, y para completar campos que falten.
@@ -136,6 +138,8 @@
         const v = m.actualizado_en ? "?v=" + encodeURIComponent(m.actualizado_en) : "";
         try { m._capa = await cargarImagen(urlPublica("capas", m.capa_path) + v); } catch (e) { console.warn("[placas]", e.message); }
       }
+      // Si el admin no subió una capa propia, se usa la que viene con el sitio (carpeta capas/).
+      if (!m._capa) { try { m._capa = await cargarImagen(`capas/${m.id}.png?v=${VERSION_CAPAS}`); } catch {} }
     }));
     return medios;
   }

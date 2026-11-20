@@ -19,9 +19,9 @@
         <canvas class="p-vista" width="1080" height="1350"></canvas>
         <div class="u-datos">
           <strong>${esc(m.nombre)}</strong>
-          ${m._capa ? '<span class="etiqueta etq-productor">Con capa</span>' : '<span class="etiqueta etq-pausado">Sin capa (boceto)</span>'}
+          ${m.capa_path ? '<span class="etiqueta etq-productor">Capa propia</span>' : m._capa ? '<span class="etiqueta etq-productor">Capa del sitio</span>' : '<span class="etiqueta etq-pausado">Sin capa (boceto)</span>'}
           <div class="suave">${esc(m.config.titulo.fuente)} ${m.config.titulo.peso} · ${m.config.titulo.tam}px</div>
-          <label class="btn btn-chico btn-borde p-subir">${m._capa ? "Cambiar capa PNG" : "Subir capa PNG"}
+          <label class="btn btn-chico btn-borde p-subir">${m.capa_path ? "Cambiar capa PNG" : "Subir otra capa PNG"}
             <input type="file" accept="image/png" hidden>
           </label>
         </div>
