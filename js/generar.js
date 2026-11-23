@@ -34,6 +34,7 @@
     $("#g-pegar").addEventListener("click", pegar);
     $("#g-borrar").addEventListener("click", () => { $("#g-punteo").value = ""; olvidarTanda(); leer(); $("#g-punteo").focus(); });
     $("#g-nueva").addEventListener("click", nuevaTanda);
+    $("#g-ver-historial").addEventListener("click", () => window.irA?.("historial"));
     $("#g-fotos").addEventListener("change", fotosElegidas);
     $("#g-fotos").addEventListener("click", quitarFoto);
     $("#g-pasos").addEventListener("click", (e) => { const b = e.target.closest("[data-ir]"); if (b && !b.disabled) navegar(+b.dataset.ir); });

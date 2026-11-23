@@ -161,7 +161,12 @@ h3 { font-size: 1.05rem; margin: 1.1rem 0 .6rem; }
 .g-pasos button[aria-current="step"] span { background: var(--acento); color: #fff; }
 .g-pasos button:disabled { opacity: .45; cursor: default; }
 
-.g-fila-chica { display: flex; gap: .5rem; margin: .6rem 0 .2rem; }
+.g-fila-chica { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 .2rem; }
+.g-ver-historial {
+  margin-left: auto; display: inline-flex; align-items: center; gap: .35rem;
+  background: transparent; color: var(--suave); font-weight: 600;
+}
+.g-ver-historial:hover { color: var(--tinta); background: #f3f0ea; }
 .g-cuenta { margin: 1rem 0 .2rem; }
 .g-num {
   flex: 0 0 auto; display: inline-grid; place-items: center; width: 1.8em; height: 1.8em; border-radius: 50%;
