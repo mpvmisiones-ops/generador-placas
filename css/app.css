@@ -183,6 +183,7 @@ h3 { font-size: 1.05rem; margin: 1.1rem 0 .6rem; }
 .g-fn.g-falta .g-num { background: var(--acento); }
 .g-fn-datos strong { display: block; line-height: 1.3; overflow-wrap: anywhere; }
 .g-fn-datos > .suave { font-size: .88rem; }
+.g-usadas { display: block; margin-top: .25rem; font-size: .85rem; color: var(--acento-osc); overflow-wrap: anywhere; }
 .g-miniaturas { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 0; }
 .g-mini { position: relative; padding: 0; border: 0; background: none; cursor: pointer; }
 .g-mini img, .g-mas { width: 78px; height: 78px; border-radius: 10px; }

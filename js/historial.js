@@ -47,7 +47,7 @@
             <span class="suave">${esc(r.autor || "")}${r.editado_por ? ` · corregida por ${esc(r.editado_por)} el ${esc(fecha(r.editado_en))}` : ""}</span>
           </div>
           <ol class="h-titulos">${ns.map(n => `<li>${esc(n.titulos?.[0] || "")}</li>`).join("")}</ol>
-          <p class="suave h-datos">${plural(ns.length, "noticia", "noticias")} · ${plural((r.placas || []).length, "placa", "placas")} · ${fotos ? plural(fotos, "foto guardada", "fotos guardadas") : "sin fotos guardadas"}</p>
+          <p class="suave h-datos">${plural(ns.length, "noticia", "noticias")} · ${plural((r.placas || []).length, "placa", "placas")} · ${fotos ? plural(fotos, "foto guardada", "fotos guardadas") : "sin fotos guardadas (es de antes del 23/11: hay que volver a cargarlas)"}</p>
           <div class="h-acciones">
             <button type="button" class="btn btn-chico btn-principal" data-acc="abrir">Abrir y corregir</button>
             ${admin ? '<button type="button" class="btn btn-chico btn-peligro" data-acc="borrar">Borrar</button>' : ""}

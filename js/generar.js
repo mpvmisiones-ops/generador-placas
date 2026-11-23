@@ -138,7 +138,7 @@
     const viejas = estado.noticias;
     estado.noticias = P.leerPunteo($("#g-punteo").value);
     // Si se edita el texto, cada noticia conserva las fotos que ya tenía.
-    estado.noticias.forEach((n, i) => n.fotos = viejas[i]?.fotos || []);
+    estado.noticias.forEach((n, i) => { n.fotos = viejas[i]?.fotos || []; if (viejas[i]?.usadas) n.usadas = viejas[i].usadas; });
     viejas.slice(estado.noticias.length).forEach(n => n.fotos.forEach(soltarFoto)); // noticias borradas
     pintarResumen();
     pintarFotos();
@@ -170,6 +170,7 @@
         <div class="g-fn-datos">
           <strong>${esc(n.titulos[0])}</strong>
           <span class="suave">${plural(n.titulos.length, "título", "títulos")} · ${n.fotos.length ? plural(n.fotos.length, "foto", "fotos") : "sin fotos"}</span>
+          ${!n.fotos.length && n.usadas?.length ? `<span class="g-usadas">Esa vez se usaron: ${n.usadas.map(esc).join(", ")}</span>` : ""}
           <div class="g-miniaturas">
             ${n.fotos.map((f, j) => `<button type="button" class="g-mini" data-quitar="${j}" aria-label="Quitar foto ${j + 1}"><img src="${f.url}" alt=""><span>✕</span></button>`).join("")}
             <label class="g-mas"><input type="file" accept="image/*" multiple hidden><b>＋</b>${n.fotos.length ? "Más" : "Fotos"}</label>
@@ -210,7 +211,10 @@
       const aMano = new Map(estado.placas.filter(p => !esOriginal(p)).map(p => [p.noticia + "|" + p.medio, p]));
       let conservadas = 0;
       estado.placas.forEach(p => p.url && URL.revokeObjectURL(p.url));
-      estado.placas = P.repartir(estado.noticias, medios, estado.semilla).map(p => {
+      if (estado.pendientes && !mezclar) {
+        estado.placas = placasGuardadas(estado.pendientes, []);
+        estado.pendientes = null;
+      } else estado.placas = P.repartir(estado.noticias, medios, estado.semilla).map(p => {
         const n = estado.noticias[p.noticia];
         const pl = { noticia: p.noticia, medio: p.medio, titulo: p.titulo, fotoId: n.fotos[p.foto]?.id, texto: null };
         pl.orig = { titulo: pl.titulo, fotoId: pl.fotoId };
@@ -541,7 +545,7 @@
   function limpiarTodo() {
     estado.noticias.forEach(n => n.fotos.forEach(soltarFoto));
     estado.placas.forEach(p => p.url && URL.revokeObjectURL(p.url));
-    Object.assign(estado, { noticias: [], placas: [], firma: "", semilla: 0 });
+    Object.assign(estado, { noticias: [], placas: [], firma: "", semilla: 0, pendientes: null });
     $("#g-placas").innerHTML = ""; $("#g-progreso").textContent = "";
     olvidarTanda();
   }
@@ -564,6 +568,19 @@
     limpiarTodo(); $("#g-punteo").value = ""; leer(); irPaso(1);
   }
 
+  // Placas de una tanda guardada: mismo medio, título, texto propio y ajuste. La foto se busca por su
+  // número en la noticia (porIndice: fotos bajadas del historial; si no, las cargadas en ese orden).
+  function placasGuardadas(guardadas, porIndice) {
+    const ids = new Set(estado.medios.map(m => m.id));
+    return guardadas.filter(p => ids.has(p.medio) && estado.noticias[p.noticia]).map(p => {
+      const n = estado.noticias[p.noticia];
+      const fotoId = (porIndice[p.noticia]?.[p.foto] || n.fotos[p.foto] || n.fotos[0])?.id;
+      const pl = { noticia: p.noticia, medio: p.medio, titulo: Math.max(0, Math.min(p.titulo ?? 0, n.titulos.length - 1)), fotoId, texto: p.texto ?? null, ajuste: p.ajuste || null };
+      pl.orig = { titulo: pl.titulo, fotoId };
+      return pl;
+    });
+  }
+
   // Abre una tanda guardada: baja sus fotos y rearma las placas tal como quedaron.
   async function abrirTanda(fila) {
     if (estado.armando) return false;
@@ -576,7 +593,11 @@
     let faltan = 0;
     try {
       $("#g-punteo").value = fila.punteo || "";
-      estado.noticias = (r.noticias || []).map(n => ({ titulos: n.titulos || [], aviso: "", fotos: [] }));
+      estado.noticias = (r.noticias || []).map(n => ({
+        titulos: n.titulos || [], aviso: "", fotos: [],
+        // nombres de las fotos que se usaron esa vez (las tandas viejas solo guardaban el nombre)
+        usadas: (n.fotos || []).map(f => typeof f === "string" ? f : f?.nombre).filter(Boolean),
+      }));
       if (!estado.noticias.length) estado.noticias = P.leerPunteo(fila.punteo).map(n => ({ ...n, fotos: [] }));
       const porIndice = estado.noticias.map(() => []); // índice guardado → foto nueva
       for (const [ni, n] of (r.noticias || []).entries()) {
@@ -591,14 +612,7 @@
         }
       }
       await cargarMedios();
-      const ids = new Set(estado.medios.map(m => m.id));
-      estado.placas = (r.placas || []).filter(p => ids.has(p.medio) && estado.noticias[p.noticia]).map(p => {
-        const n = estado.noticias[p.noticia];
-        const fotoId = (porIndice[p.noticia][p.foto] || n.fotos[0])?.id;
-        const pl = { noticia: p.noticia, medio: p.medio, titulo: Math.min(p.titulo ?? 0, n.titulos.length - 1), fotoId, texto: p.texto ?? null, ajuste: p.ajuste || null };
-        pl.orig = { titulo: pl.titulo, fotoId };
-        return pl;
-      });
+      estado.placas = placasGuardadas(r.placas || [], porIndice);
       estado.semilla = r.semilla || 0;
       estado.historialId = fila.id;
       estado.historialInfo = { fecha: new Date(fila.creado_en).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }), autor: r.autor || "" };
@@ -610,9 +624,12 @@
     estado.armando = false;
     pintarResumen(); pintarFotos(); pintarTanda();
     if (faltanFotos().length || !estado.placas.length) {
+      estado.pendientes = r.placas?.length ? r.placas : null; // al cargar las fotos se rearma igual que la original
       estado.placas = []; estado.firma = "";
       irPaso(estado.noticias.length ? 2 : 1);
-      aviso(faltan ? "Esta tanda no tiene todas sus fotos guardadas: cargalas de nuevo." : "Revisá la tanda y armá las placas.", !!faltan);
+      const vieja = !(r.noticias || []).some(n => (n.fotos || []).some(f => f?.path));
+      aviso(vieja ? "Esta tanda es de antes de que se guardaran las fotos: cargalas una vez y al descargar quedan guardadas."
+        : faltan ? "Esta tanda no tiene todas sus fotos guardadas: cargalas de nuevo." : "Revisá la tanda y armá las placas.", !!faltan || vieja);
       return true;
     }
     irPaso(3);
