@@ -163,10 +163,10 @@ h3 { font-size: 1.05rem; margin: 1.1rem 0 .6rem; }
 
 .g-fila-chica { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 .2rem; }
 .g-ver-historial {
-  margin-left: auto; display: inline-flex; align-items: center; gap: .35rem;
-  background: transparent; color: var(--suave); font-weight: 600;
+  margin-left: auto; display: inline-flex; align-items: center; gap: .4rem;
+  background: #fff4ee; color: var(--acento-osc); border-color: var(--acento); font-weight: 800;
 }
-.g-ver-historial:hover { color: var(--tinta); background: #f3f0ea; }
+.g-ver-historial:hover { background: var(--acento); color: #fff; }
 .g-cuenta { margin: 1rem 0 .2rem; }
 .g-num {
   flex: 0 0 auto; display: inline-grid; place-items: center; width: 1.8em; height: 1.8em; border-radius: 50%;
