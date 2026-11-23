@@ -4,6 +4,8 @@
 // En el paso 3 se toca una placa para cambiarle el título (o escribir uno propio) o la foto.
 // "Volver a mezclar" cambia el reparto pero respeta las placas cambiadas a mano.
 // El botón "atrás" del celular vuelve al paso anterior (o cierra el editor) en vez de salir de la página.
+// Historial: al descargar, la tanda (textos, fotos y qué le tocó a cada medio) se guarda en Supabase;
+// desde la pestaña Historial cualquiera la reabre con abrirTanda() para corregir y volver a descargar.
 (() => {
   const $ = (s, el = document) => el.querySelector(s);
   const esc = (t) => String(t ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -17,6 +19,9 @@
     firma: "",            // qué punteo + fotos se usó para armar las placas actuales
     armando: false, listo: false,
     editando: -1,         // placa abierta en el editor
+    historialId: null,    // fila del historial de esta tanda (se actualiza al volver a descargar)
+    historialInfo: null,  // { fecha, autor } si se abrió desde el historial
+    guardado: null,       // clave de lo último guardado en el historial
   };
   let proximoId = 1;
 
@@ -27,7 +32,8 @@
     estado.listo = true;
     $("#g-punteo").addEventListener("input", leer);
     $("#g-pegar").addEventListener("click", pegar);
-    $("#g-borrar").addEventListener("click", () => { $("#g-punteo").value = ""; leer(); $("#g-punteo").focus(); });
+    $("#g-borrar").addEventListener("click", () => { $("#g-punteo").value = ""; olvidarTanda(); leer(); $("#g-punteo").focus(); });
+    $("#g-nueva").addEventListener("click", nuevaTanda);
     $("#g-fotos").addEventListener("change", fotosElegidas);
     $("#g-fotos").addEventListener("click", quitarFoto);
     $("#g-pasos").addEventListener("click", (e) => { const b = e.target.closest("[data-ir]"); if (b && !b.disabled) navegar(+b.dataset.ir); });
@@ -133,13 +139,16 @@
     // Si se edita el texto, cada noticia conserva las fotos que ya tenía.
     estado.noticias.forEach((n, i) => n.fotos = viejas[i]?.fotos || []);
     viejas.slice(estado.noticias.length).forEach(n => n.fotos.forEach(soltarFoto)); // noticias borradas
+    pintarResumen();
+    pintarFotos();
+    mostrar(estado.paso);
+  }
+  function pintarResumen() {
     const res = $("#g-resumen");
     res.innerHTML = estado.noticias.length
       ? `<p class="g-cuenta"><strong>${plural(estado.noticias.length, "noticia encontrada", "noticias encontradas")}</strong></p>` +
         estado.noticias.map((n, i) => `<div class="g-noticia"><span class="g-num">${i + 1}</span><div>${n.aviso ? `<p class="error">${esc(n.aviso)}</p>` : ""}<ol>${n.titulos.map(t => `<li>${esc(t)}</li>`).join("")}</ol></div></div>`).join("")
       : "";
-    pintarFotos();
-    mostrar(estado.paso);
   }
 
   // ---------- Paso 2: fotos por noticia ----------
@@ -192,10 +201,7 @@
     estado.armando = true; pintarPie();
     const prog = $("#g-progreso");
     try {
-      if (!estado.medios) {
-        prog.textContent = "Cargando diseños de los medios…";
-        estado.medios = await P.prepararMedios(await P.cargarMedios(window.sb), window.sb);
-      }
+      await cargarMedios();
       const medios = estado.medios.filter(m => m.en_rotacion);
       if (mezclar || !estado.semilla) estado.semilla = Math.floor(Math.random() * 2 ** 31);
 
@@ -215,21 +221,32 @@
         return pl;
       });
       estado.firma = firma();
-
-      pintarGrilla();
-      const canvas = document.createElement("canvas");
-      for (let i = 0; i < estado.placas.length; i++) {
-        prog.textContent = `Armando placa ${i + 1} de ${estado.placas.length}…`;
-        await dibujarPlaca(i, canvas);
-        if (i % 4 === 3) await new Promise(r => setTimeout(r)); // deja respirar a la pantalla
-      }
-      prog.textContent = `${plural(estado.placas.length, "placa lista", "placas listas")}.`;
+      await dibujarTodas();
       if (mezclar && conservadas) aviso(`Mezclado. Se mantuvieron ${plural(conservadas, "placa cambiada", "placas cambiadas")} a mano.`);
     } catch (e) {
       console.error(e); prog.textContent = "Error: " + e.message;
     }
     estado.armando = false;
     pintarPie(); pintarProblemas();
+  }
+
+  async function cargarMedios() {
+    if (!estado.medios) {
+      $("#g-progreso").textContent = "Cargando diseños de los medios…";
+      estado.medios = await P.prepararMedios(await P.cargarMedios(window.sb), window.sb);
+    }
+    return estado.medios;
+  }
+  async function dibujarTodas() {
+    const prog = $("#g-progreso");
+    pintarGrilla();
+    const canvas = document.createElement("canvas");
+    for (let i = 0; i < estado.placas.length; i++) {
+      prog.textContent = `Armando placa ${i + 1} de ${estado.placas.length}…`;
+      await dibujarPlaca(i, canvas);
+      if (i % 4 === 3) await new Promise(r => setTimeout(r)); // deja respirar a la pantalla
+    }
+    prog.textContent = `${plural(estado.placas.length, "placa lista", "placas listas")}.`;
   }
 
   function pintarGrilla() {
@@ -331,10 +348,10 @@
   function nota(t, mal) { const p = $("#e-nota"); p.textContent = t; p.classList.toggle("mal", !!mal); }
   function pintarAjustes() {
     const a = estado.placas[estado.editando].ajuste || P.SIN_AJUSTE;
-    document.querySelectorAll("#e-ajustes [data-a]").forEach(r => { r.value = a[r.dataset.a]; });
+    document.querySelectorAll("#e-ajustes [data-a]").forEach(r => { r.value = a[r.dataset.a] ?? 100; });
     document.querySelectorAll("#e-ajustes [data-v]").forEach(o => {
       const k = o.dataset.v, v = a[k];
-      o.textContent = k === "escala" || k === "ancho" ? v + " %" : (v > 0 ? "+" : "") + v;
+      o.textContent = k === "dx" || k === "dy" ? (v > 0 ? "+" : "") + v : (v ?? 100) + " %";
     });
   }
   // Copia el ajuste de esta placa a todas las placas del mismo medio.
@@ -351,23 +368,24 @@
   // Solo admin: guarda la caja ajustada como diseño del medio (tabla "medios"), para todas las tandas.
   async function guardarDiseno() {
     const i = estado.editando, pl = estado.placas[i], m = medioDe(pl), b = $("#e-aj-guardar");
-    if (!P.hayAjuste(pl.ajuste)) return nota("Primero acomodá el texto con los controles.", true);
-    if (!confirm(`¿Guardar esta posición y tamaño de texto como diseño fijo de ${m.nombre}? Se va a usar en todas las placas de ahora en adelante.`)) return;
+    if (!P.hayAjuste(pl.ajuste)) return nota("Primero acomodá el texto o el fondo con los controles.", true);
+    if (!confirm(`¿Guardar este texto y esta opacidad del fondo como diseño fijo de ${m.nombre}? Se va a usar en todas las placas de ahora en adelante.`)) return;
     const titulo = P.cajaAjustada(m.config.titulo, pl.ajuste);
+    const capa = { ...(m.config.capa || {}), opacidad: P.opacidadDe(m, pl.ajuste) };
     b.disabled = true;
     let error;
-    try { ({ error } = await window.sb.from("medios").update({ config: { ...m.config, titulo }, actualizado_en: new Date().toISOString() }).eq("id", m.id)); }
+    try { ({ error } = await window.sb.from("medios").update({ config: { ...m.config, titulo, capa }, actualizado_en: new Date().toISOString() }).eq("id", m.id)); }
     catch (e) { error = e; }
     b.disabled = false;
     if (error) return nota("No se pudo guardar: " + error.message, true);
-    m.config = { ...m.config, titulo };
+    m.config = { ...m.config, titulo, capa };
     // El ajuste ya quedó dentro del diseño: se quita de todas las placas de este medio.
     estado.placas.forEach((o, k) => {
       if (o.medio !== m.id) return;
       o.ajuste = null; o.sucia = true; if (k !== i) confirmar(k);
     });
     pintarEditor();
-    nota(`Guardado: ${m.nombre} usa este texto de ahora en adelante.`);
+    nota(`Guardado: ${m.nombre} usa este diseño de ahora en adelante.`);
   }
 
   function abrirEditor(i) {
@@ -426,6 +444,7 @@
   async function guardarUna() {
     const i = estado.editando, pl = estado.placas[i];
     await confirmar(i); await pl.redibujo;
+    if (estado.historialId) guardarHistorial(); // corrección de una tanda guardada: se actualiza
     const nombre = `${P.nombreArchivo(medioDe(pl).nombre)}-noticia-${pl.noticia + 1}.jpg`;
     const archivo = new File([pl.blob], nombre, { type: "image/jpeg" });
     if (navigator.canShare?.({ files: [archivo] })) {
@@ -456,22 +475,152 @@
     pintarPie();
   }
 
-  // Historial: solo textos y qué le tocó a cada medio (sin fotos, para no llenar el espacio gratis).
-  async function guardarHistorial() {
-    const resultado = {
-      noticias: estado.noticias.map(n => ({ titulos: n.titulos, fotos: n.fotos.map(f => f.nombre) })),
-      placas: estado.placas.map(pl => ({
-        noticia: pl.noticia, medio: pl.medio, titulo: pl.titulo,
-        foto: estado.noticias[pl.noticia].fotos.findIndex(f => f.id === pl.fotoId),
-        ...(pl.texto != null ? { texto: pl.texto } : {}), ...(P.hayAjuste(pl.ajuste) ? { ajuste: pl.ajuste } : {}), ...(esOriginal(pl) ? {} : { a_mano: true }),
-      })),
-    };
-    const clave = JSON.stringify(resultado);
-    if (!window.sb || estado.guardado === clave) return; // no repetir si se descarga dos veces lo mismo
-    estado.guardado = clave;
-    const { error } = await window.sb.from("historial").insert({ punteo: $("#g-punteo").value, resultado });
-    if (error) console.warn("[placas] no se guardó el historial:", error.message);
+  // ---------- Historial general ----------
+  // Se guarda al descargar: textos, fotos (achicadas, en el Storage "historial") y qué le tocó a cada medio.
+  // Si la tanda ya estaba guardada (o se abrió desde el historial), se actualiza la misma fila.
+  const claveTanda = () => JSON.stringify([
+    estado.noticias.map(n => [n.titulos, n.fotos.map(f => f.id)]),
+    estado.placas.map(pl => [pl.noticia, pl.medio, pl.titulo, pl.fotoId, pl.texto, pl.ajuste]),
+  ]);
+  function guardarHistorial() {
+    if (!window.sb || estado.guardado === claveTanda()) return; // no repetir si no cambió nada
+    if (estado.guardando) return estado.guardando.then(guardarHistorial);
+    estado.guardando = (async () => {
+      const clave = claveTanda();
+      try {
+        let sinSubir = 0;
+        for (const n of estado.noticias) for (const f of n.fotos) {
+          if (f.path) continue;
+          try { await subirFoto(f); } catch (e) { sinSubir++; console.warn("[placas] foto sin subir:", e.message); }
+        }
+        const yo = window.perfil?.nombre || window.perfil?.usuario || "";
+        const ahora = new Date().toISOString();
+        const resultado = {
+          version: 2, semilla: estado.semilla,
+          autor: estado.historialInfo?.autor || yo,
+          ...(estado.historialInfo ? { editado_por: yo, editado_en: ahora } : {}),
+          noticias: estado.noticias.map(n => ({ titulos: n.titulos, fotos: n.fotos.map(f => ({ nombre: f.nombre, path: f.path || null })) })),
+          placas: estado.placas.map(pl => ({
+            noticia: pl.noticia, medio: pl.medio, titulo: pl.titulo,
+            foto: estado.noticias[pl.noticia].fotos.findIndex(f => f.id === pl.fotoId),
+            ...(pl.texto != null ? { texto: pl.texto } : {}), ...(P.hayAjuste(pl.ajuste) ? { ajuste: pl.ajuste } : {}), ...(esOriginal(pl) ? {} : { a_mano: true }),
+          })),
+        };
+        const punteo = $("#g-punteo").value;
+        let error;
+        if (estado.historialId) ({ error } = await window.sb.from("historial").update({ punteo, resultado }).eq("id", estado.historialId));
+        else {
+          const r = await window.sb.from("historial").insert({ punteo, resultado }).select("id").single();
+          error = r.error; if (!error) estado.historialId = r.data.id;
+        }
+        if (error) throw error;
+        estado.guardado = clave;
+        aviso(sinSubir ? `Guardado en el historial, pero ${plural(sinSubir, "foto no se pudo subir", "fotos no se pudieron subir")}.` : "Guardado en el historial.", !!sinSubir);
+      } catch (e) {
+        console.warn("[placas] no se guardó el historial:", e.message);
+        aviso("No se pudo guardar en el historial: " + e.message, true);
+      } finally { estado.guardando = null; }
+    })();
+    return estado.guardando;
+  }
+  // Foto achicada (1600 px de lado mayor) para no llenar el espacio gratis de Supabase.
+  async function subirFoto(f) {
+    const k = Math.min(1, 1600 / Math.max(f.bmp.width, f.bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(f.bmp.width * k); c.height = Math.round(f.bmp.height * k);
+    c.getContext("2d").drawImage(f.bmp, 0, 0, c.width, c.height);
+    const blob = await P.aBlob(c, "image/jpeg", 0.85);
+    const path = `${new Date().toLocaleDateString("sv-SE")}/${crypto.randomUUID()}.jpg`;
+    const { error } = await window.sb.storage.from("historial").upload(path, blob, { contentType: "image/jpeg" });
+    if (error) throw error;
+    f.path = path;
   }
 
-  window.Generar = { iniciar, estado };
+  // Borra todo lo que hay en pantalla (fotos, placas) y desvincula la tanda del historial.
+  function limpiarTodo() {
+    estado.noticias.forEach(n => n.fotos.forEach(soltarFoto));
+    estado.placas.forEach(p => p.url && URL.revokeObjectURL(p.url));
+    Object.assign(estado, { noticias: [], placas: [], firma: "", semilla: 0 });
+    $("#g-placas").innerHTML = ""; $("#g-progreso").textContent = "";
+    olvidarTanda();
+  }
+  function olvidarTanda() {
+    Object.assign(estado, { historialId: null, historialInfo: null, guardado: null });
+    pintarTanda();
+  }
+  function pintarTanda() {
+    const i = estado.historialInfo;
+    $("#g-tanda").hidden = !i;
+    if (i) $("#g-tanda-txt").textContent = `Corrigiendo la tanda del ${i.fecha}${i.autor ? ` (${i.autor})` : ""}. Al descargar se actualiza en el historial.`;
+  }
+  function irPaso(n) { // salto directo (sin apilar en el historial del navegador)
+    estado.pila[estado.pila.length - 1] = n;
+    history.replaceState({ paso: n, d: estado.pila.length - 1, dlg: false }, "");
+    mostrar(n);
+  }
+  function nuevaTanda() {
+    if (estado.noticias.some(n => n.fotos.length) && !confirm("¿Empezar una tanda nueva? Lo que está en pantalla se borra (lo ya descargado queda en el historial).")) return;
+    limpiarTodo(); $("#g-punteo").value = ""; leer(); irPaso(1);
+  }
+
+  // Abre una tanda guardada: baja sus fotos y rearma las placas tal como quedaron.
+  async function abrirTanda(fila) {
+    if (estado.armando) return false;
+    if (estado.historialId !== fila.id && estado.noticias.some(n => n.fotos.length) &&
+        !confirm("Se va a reemplazar lo que estás armando ahora. ¿Abrir la tanda del historial?")) return false;
+    const r = fila.resultado || {};
+    limpiarTodo();
+    estado.armando = true; pintarPie();
+    aviso("Abriendo la tanda…");
+    let faltan = 0;
+    try {
+      $("#g-punteo").value = fila.punteo || "";
+      estado.noticias = (r.noticias || []).map(n => ({ titulos: n.titulos || [], aviso: "", fotos: [] }));
+      if (!estado.noticias.length) estado.noticias = P.leerPunteo(fila.punteo).map(n => ({ ...n, fotos: [] }));
+      const porIndice = estado.noticias.map(() => []); // índice guardado → foto nueva
+      for (const [ni, n] of (r.noticias || []).entries()) {
+        for (const [k, f] of (n.fotos || []).entries()) {
+          if (!f?.path) { faltan++; continue; }
+          try {
+            const { data: blob, error } = await window.sb.storage.from("historial").download(f.path);
+            if (error) throw error;
+            const foto = { id: proximoId++, bmp: await P.leerFoto(blob), url: URL.createObjectURL(blob), nombre: f.nombre, path: f.path };
+            estado.noticias[ni].fotos.push(foto); porIndice[ni][k] = foto;
+          } catch (e) { faltan++; console.warn("[placas] foto del historial:", e.message); }
+        }
+      }
+      await cargarMedios();
+      const ids = new Set(estado.medios.map(m => m.id));
+      estado.placas = (r.placas || []).filter(p => ids.has(p.medio) && estado.noticias[p.noticia]).map(p => {
+        const n = estado.noticias[p.noticia];
+        const fotoId = (porIndice[p.noticia][p.foto] || n.fotos[0])?.id;
+        const pl = { noticia: p.noticia, medio: p.medio, titulo: Math.min(p.titulo ?? 0, n.titulos.length - 1), fotoId, texto: p.texto ?? null, ajuste: p.ajuste || null };
+        pl.orig = { titulo: pl.titulo, fotoId };
+        return pl;
+      });
+      estado.semilla = r.semilla || 0;
+      estado.historialId = fila.id;
+      estado.historialInfo = { fecha: new Date(fila.creado_en).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }), autor: r.autor || "" };
+      estado.firma = firma();
+      estado.guardado = claveTanda();
+    } catch (e) {
+      console.error(e); aviso("No se pudo abrir la tanda: " + e.message, true);
+    }
+    estado.armando = false;
+    pintarResumen(); pintarFotos(); pintarTanda();
+    if (faltanFotos().length || !estado.placas.length) {
+      estado.placas = []; estado.firma = "";
+      irPaso(estado.noticias.length ? 2 : 1);
+      aviso(faltan ? "Esta tanda no tiene todas sus fotos guardadas: cargalas de nuevo." : "Revisá la tanda y armá las placas.", !!faltan);
+      return true;
+    }
+    irPaso(3);
+    estado.armando = true; pintarPie();
+    await dibujarTodas();
+    estado.armando = false; pintarPie(); pintarProblemas();
+    if (faltan) aviso(`${plural(faltan, "foto no se pudo recuperar", "fotos no se pudieron recuperar")}; esas placas usan otra foto de la noticia.`, true);
+    return true;
+  }
+
+  window.Generar = { iniciar, estado, abrirTanda };
 })();

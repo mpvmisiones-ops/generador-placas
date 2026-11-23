@@ -41,6 +41,27 @@ code { background: #eee9df; padding: .1em .35em; border-radius: 6px; }
 .btn-rueda[aria-pressed="true"] { background: #fff; color: var(--tinta); border-color: #fff; }
 .btn-rueda[aria-pressed="true"] svg { transform: rotate(60deg); }
 .pestanas .pestana-volver { background: transparent; border-style: dashed; }
+.barra-usuario { gap: .45rem; }
+@media (max-width: 400px) { #barra-nombre { display: none; } }
+
+/* Tanda abierta desde el historial */
+.g-tanda {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem;
+  background: #fff4ee; border: 2px solid #ffd2bd; border-radius: var(--radio); padding: .6rem .8rem; margin-bottom: 12px;
+  font-size: .9rem; font-weight: 600; color: var(--acento-osc);
+}
+
+/* Historial */
+.h-volver { margin-bottom: 12px; }
+.h-item { padding: .9rem 0; border-bottom: 1px solid var(--linea); }
+.h-item:last-child { border-bottom: 0; }
+.h-cab { display: flex; flex-wrap: wrap; gap: .2rem .6rem; align-items: baseline; }
+.h-cab .suave { font-size: .88rem; }
+.h-titulos { margin: .4rem 0; padding-left: 1.3rem; font-size: .95rem; line-height: 1.3; }
+.h-titulos li { margin-bottom: .15rem; overflow-wrap: anywhere; }
+.h-datos { margin: 0 0 .5rem; font-size: .85rem; }
+.h-acciones { display: flex; flex-wrap: wrap; gap: .5rem; }
+.h-mas { width: 100%; margin-top: .6rem; }
 
 main { max-width: 860px; margin: 0 auto; padding: 16px; }
 .tarjeta {

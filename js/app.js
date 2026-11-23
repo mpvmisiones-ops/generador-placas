@@ -108,6 +108,8 @@
     $$("button", nav).forEach(b => b.addEventListener("click", () => irA(b.dataset.tab)));
     irA("generar");
   }
+  window.irA = (tab) => irA(tab); // lo usa el historial para volver a Generar
+  $("#btn-historial").addEventListener("click", () => irA($("#btn-historial").getAttribute("aria-pressed") === "true" ? "generar" : "historial"));
   $("#btn-config").addEventListener("click", () => {
     if (perfil?.rol === "admin") irA($("#btn-config").getAttribute("aria-pressed") === "true" ? "generar" : "usuarios");
     else { $("#dlg-config-yo").textContent = `"${perfil?.usuario}"`; $("#dlg-config").returnValue = ""; $("#dlg-config").showModal(); }
@@ -120,18 +122,24 @@
     $("#login-error").textContent = "Entrá con el usuario administrador (no con el de productor).";
     $("#form-login").usuario.focus();
   });
+  // Historial: lo ven todos. Usuarios y Plantillas: solo admin.
   function irA(tab) {
-    const config = tab !== "generar" && perfil?.rol === "admin";
-    if (!config) tab = "generar";
-    $("#pestanas").hidden = !config;
+    const admin = perfil?.rol === "admin";
+    if (!["generar", "historial"].includes(tab) && !admin) tab = "generar";
+    const config = admin && tab !== "generar" && tab !== "historial";
+    $("#pestanas").hidden = !admin || tab === "generar";
     $("#btn-config").setAttribute("aria-pressed", config);
     $("#btn-config").title = config ? "Volver a generar placas" : "Configuración";
+    $("#btn-historial").setAttribute("aria-pressed", tab === "historial");
+    $("#btn-historial").title = tab === "historial" ? "Volver a generar placas" : "Historial";
+    $("#h-volver").hidden = admin; // el admin ya tiene "← Generar placas" en las pestañas
     $$("#pestanas button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
     $$(".seccion").forEach(s => s.hidden = s.dataset.seccion !== tab);
     window.scrollTo({ top: 0 });
     if (tab === "usuarios") cargarUsuarios();
     if (tab === "generar") window.Generar?.iniciar();
     if (tab === "plantillas") window.Plantillas?.iniciar();
+    if (tab === "historial") window.Historial?.iniciar();
   }
 
   // ---------- Usuarios (solo admin) ----------

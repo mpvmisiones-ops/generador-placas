@@ -31,11 +31,18 @@
   const GOOGLE_FONTS = "https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bebas+Neue&family=Inter:wght@900&family=Lato:wght@900&family=Montserrat:wght@800&family=Open+Sans:wght@800&family=Plus+Jakarta+Sans:wght@800&family=Poppins:wght@700&display=swap";
 
   // ---------- 1. Leer el punteo ----------
-  // Las noticias se separan con /// y los títulos van entre *asteriscos* (negrita de WhatsApp).
+  // Las noticias se separan con ///. Los títulos van entre *asteriscos* (negrita de WhatsApp)
+  // o escritos en MAYÚSCULA (por si se olvidan de los asteriscos).
   function limpiarTitulo(t) {
     return t.replace(/[_~`]/g, "")                 // otros formatos de WhatsApp
       .replace(/^[\s\-–—•·▪►✅👉🔹🔸\d.)]+(?=\D)/u, "") // viñetas y numeración al principio
       .replace(/\s+/g, " ").trim();
+  }
+  // Una línea es título si está casi toda en mayúscula y tiene al menos 3 palabras.
+  function esMayuscula(l) {
+    const letras = l.replace(/[^A-Za-zÁÉÍÓÚÜÑáéíóúüñ]/g, "");
+    if (letras.length < 10 || l.split(/\s+/).length < 3) return false;
+    return letras.replace(/[^A-ZÁÉÍÓÚÜÑ]/g, "").length / letras.length >= 0.85;
   }
   function leerPunteo(texto) {
     const bloques = String(texto || "").replace(/\r/g, "").split(/\/{3,}/);
@@ -43,15 +50,17 @@
     for (const b of bloques) {
       if (!b.trim()) continue;
       const titulos = [];
-      for (const m of b.matchAll(/\*([^*\n]+)\*/g)) {
-        const t = limpiarTitulo(m[1]);
-        if (t.length > 3 && !titulos.includes(t)) titulos.push(t);
+      const sumar = (t) => { t = limpiarTitulo(t); if (t.length > 3 && !titulos.includes(t)) titulos.push(t); };
+      for (const linea of b.split("\n")) { // en el orden en que aparecen
+        const conAsteriscos = [...linea.matchAll(/\*([^*\n]+)\*/g)];
+        if (conAsteriscos.length) conAsteriscos.forEach(m => sumar(m[1]));
+        else if (esMayuscula(limpiarTitulo(linea))) sumar(linea);
       }
       let aviso = "";
-      if (!titulos.length) { // sin asteriscos: tomo la primera línea con texto
+      if (!titulos.length) { // sin asteriscos ni mayúsculas: tomo la primera línea con texto
         const linea = b.split("\n").map(limpiarTitulo).find(l => l.length > 3);
         if (!linea) continue;
-        titulos.push(linea); aviso = "Esta noticia no tenía títulos entre *asteriscos*: usé la primera línea.";
+        titulos.push(linea); aviso = "Esta noticia no tenía títulos en MAYÚSCULA ni entre *asteriscos*: usé la primera línea.";
       }
       noticias.push({ titulos, aviso });
     }
@@ -256,9 +265,11 @@
     return med;
   }
 
-  // Ajuste del texto de una placa: { escala %, ancho %, dx px, dy px } sobre la caja del medio.
-  const SIN_AJUSTE = { escala: 100, ancho: 100, dx: 0, dy: 0 };
-  const hayAjuste = (a) => !!a && (a.escala !== 100 || a.ancho !== 100 || a.dx !== 0 || a.dy !== 0);
+  // Ajuste de una placa: { escala %, ancho %, dx px, dy px } sobre la caja del título
+  // y opacidad % de la veladura de la capa (degradés y fondos semitransparentes).
+  const SIN_AJUSTE = { escala: 100, ancho: 100, dx: 0, dy: 0, opacidad: 100 };
+  const hayAjuste = (a) => !!a && (a.escala !== 100 || a.ancho !== 100 || a.dx !== 0 || a.dy !== 0 || (a.opacidad ?? 100) !== 100);
+  const opacidadDe = (m, a) => Math.round((m.config.capa?.opacidad ?? 100) * (a?.opacidad ?? 100) / 100);
   function cajaAjustada(t, a) {
     if (!hayAjuste(a)) return t;
     return { ...t, x: Math.round(t.x + a.dx), y: Math.round(t.y + a.dy), w: Math.round(t.w * a.ancho / 100), tam: Math.round(t.tam * a.escala / 100) };
@@ -267,15 +278,48 @@
     return hayAjuste(a) ? { ...m, config: { ...m.config, titulo: cajaAjustada(m.config.titulo, a) } } : m;
   }
 
+  // La capa se separa una vez en "veladura" (píxeles semitransparentes: degradés) y "sólido"
+  // (píxeles 100 % opacos: logos, cajas, texturas), para poder cambiar la opacidad del fondo sin tocar el logo.
+  const partesCapa = new WeakMap();
+  function partesDe(img) {
+    if (partesCapa.has(img)) return partesCapa.get(img);
+    let partes = null;
+    try {
+      const lienzo = () => { const c = document.createElement("canvas"); c.width = ANCHO; c.height = ALTO; return c; };
+      const base = lienzo(), bx = base.getContext("2d", { willReadFrequently: true });
+      bx.drawImage(img, 0, 0, ANCHO, ALTO);
+      const d = bx.getImageData(0, 0, ANCHO, ALTO);
+      const vel = new ImageData(ANCHO, ALTO), sol = new ImageData(ANCHO, ALTO);
+      const o = new Uint32Array(d.data.buffer), v = new Uint32Array(vel.data.buffer), s = new Uint32Array(sol.data.buffer);
+      for (let i = 0; i < o.length; i++) { const a = d.data[i * 4 + 3]; if (a === 255) s[i] = o[i]; else if (a) v[i] = o[i]; }
+      const cv = lienzo(), cs = lienzo();
+      cv.getContext("2d").putImageData(vel, 0, 0); cs.getContext("2d").putImageData(sol, 0, 0);
+      partes = { veladura: cv, solido: cs };
+    } catch (e) { console.warn("[placas] no se pudo separar la capa:", e.message); }
+    partesCapa.set(img, partes);
+    return partes;
+  }
+  function dibujarCapa(ctx, capa, opacidad) {
+    if (opacidad === 100) return ctx.drawImage(capa, 0, 0, ANCHO, ALTO);
+    const p = partesDe(capa);
+    ctx.save();
+    if (!p) { ctx.globalAlpha = Math.min(1, opacidad / 100); ctx.drawImage(capa, 0, 0, ANCHO, ALTO); ctx.restore(); return; }
+    ctx.globalAlpha = Math.min(1, opacidad / 100); ctx.drawImage(p.veladura, 0, 0);
+    if (opacidad > 100) { ctx.globalAlpha = Math.min(1, (opacidad - 100) / 100); ctx.drawImage(p.veladura, 0, 0); }
+    ctx.globalAlpha = 1; ctx.drawImage(p.solido, 0, 0);
+    ctx.restore();
+  }
+
   // Arma una placa completa en el canvas dado (o en uno nuevo) y lo devuelve.
   function componer({ medio, foto, titulo, canvas, ajuste }) {
+    const opacidad = opacidadDe(medio, ajuste);
     medio = medioAjustado(medio, ajuste);
     const c = canvas || document.createElement("canvas");
     c.width = ANCHO; c.height = ALTO;
     const ctx = c.getContext("2d");
     ctx.fillStyle = "#111"; ctx.fillRect(0, 0, ANCHO, ALTO);
     dibujarFoto(ctx, foto, medio.config.foto);
-    if (medio._capa) ctx.drawImage(medio._capa, 0, 0, ANCHO, ALTO); else dibujarBoceto(ctx, medio);
+    if (medio._capa) dibujarCapa(ctx, medio._capa, opacidad); else dibujarBoceto(ctx, medio);
     const med = dibujarTitulo(ctx, medio, titulo || "");
     c.dataset.entra = med.entra ? "1" : "0";
     return c;
@@ -292,5 +336,5 @@
     return zip.generateAsync({ type: "blob", compression: "STORE" }); // los JPG ya vienen comprimidos
   }
 
-  window.Placas = { ANCHO, ALTO, MEDIOS_DEFECTO, SIN_AJUSTE, hayAjuste, cajaAjustada, leerPunteo, repartir, cargarMedios, prepararMedios, leerFoto, componer, medirTitulo, aBlob, armarZip, nombreArchivo };
+  window.Placas = { ANCHO, ALTO, MEDIOS_DEFECTO, SIN_AJUSTE, hayAjuste, cajaAjustada, opacidadDe, leerPunteo, repartir, cargarMedios, prepararMedios, leerFoto, componer, medirTitulo, aBlob, armarZip, nombreArchivo };
 })();

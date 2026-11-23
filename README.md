@@ -17,7 +17,7 @@ Las placas se componen por código en el navegador (canvas): foto + capa PNG del
 - `docs/medidas-canva.md` — medidas y tipografías tomadas del diseño en Canva.
 
 ## Cómo funciona el motor (Etapa 2)
-- **Punteo:** las noticias se separan con `///`; los títulos van entre `*asteriscos*`. Si una noticia no tiene asteriscos se usa su primera línea.
+- **Punteo:** las noticias se separan con `///`; los títulos van entre `*asteriscos*` o escritos en MAYÚSCULA (línea casi toda en mayúscula, 3 palabras o más). Si una noticia no tiene ninguno se usa su primera línea.
 - **Reparto:** cada medio en rotación recibe una combinación título + foto por noticia; se equilibra el uso y dos medios seguidos no repiten título ni foto. "Volver a mezclar" cambia el reparto.
 - **Placa:** fondo → foto recortada a su zona (tipo "cover") → capa PNG del medio → título. Si el título no entra, la letra se achica hasta 55 % y, si aun así no entra, la placa se marca en rojo.
 - **Capas:** `capas/<medio>.png` (1080×1350, zona de foto transparente). Si el admin sube otra desde Plantillas (Supabase Storage), tiene prioridad. Si ninguna carga, se dibuja un boceto.
@@ -34,3 +34,9 @@ Pensada primero para el celular: un paso por vez, con los botones principales fi
 - Si un título no entra, la placa se marca en rojo y aparece un aviso con el botón "Corregir".
 - El botón "atrás" del celular vuelve al paso anterior o cierra el editor; si hay fotos cargadas, el navegador pide confirmar antes de salir de la página.
 - El historial guarda también los textos propios (`texto`) y qué placas se cambiaron a mano (`a_mano`).
+- **Acomodar texto y fondo** (editor de placa): tamaño, ancho y posición del título, y **opacidad del fondo** (0–150 %: solo la veladura semitransparente de la capa, como el degradé de Interesante; logos y cajas opacas no cambian). "Aplicar a todas las de <medio>" y, para el admin, "Guardar como diseño fijo" (tabla `medios`: `config.titulo` y `config.capa.opacidad`).
+
+## Historial general
+- Botón del reloj en la barra: lo ven **todos** los usuarios. Cada descarga del ZIP guarda la tanda: punteo, títulos, qué le tocó a cada medio, cambios a mano y las **fotos** (achicadas a 1600 px, Storage privado `historial`).
+- "Abrir y corregir" la carga en Generar tal como quedó; al volver a descargar (o "Guardar esta placa") se **actualiza la misma tanda** y queda "corregida por …". "Empezar una nueva" la suelta.
+- El admin puede borrar tandas (también borra sus fotos). Permisos en `supabase/historial-general.sql`.

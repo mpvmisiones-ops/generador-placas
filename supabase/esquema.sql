@@ -80,7 +80,7 @@ drop policy if exists "admin edita medios" on public.medios;
 create policy "admin edita medios" on public.medios
   for all to authenticated using (public.es_admin()) with check (public.es_admin());
 
--- ---------- Historial (solo textos y asignaciones, sin fotos) ----------
+-- ---------- Historial (textos, asignaciones y rutas de las fotos del Storage "historial") ----------
 create table if not exists public.historial (
   id          bigint generated always as identity primary key,
   usuario_id  uuid not null default auth.uid() references public.perfiles(id) on delete cascade,
@@ -90,9 +90,13 @@ create table if not exists public.historial (
 );
 
 alter table public.historial enable row level security;
+-- Historial general: lo ven y lo corrigen todos los usuarios activos (ver también historial-general.sql).
 drop policy if exists "ver historial" on public.historial;
 create policy "ver historial" on public.historial
-  for select to authenticated using (usuario_id = auth.uid() or public.es_admin());
+  for select to authenticated using (public.es_activo());
+drop policy if exists "corregir historial" on public.historial;
+create policy "corregir historial" on public.historial
+  for update to authenticated using (public.es_activo()) with check (public.es_activo());
 drop policy if exists "guardar historial" on public.historial;
 create policy "guardar historial" on public.historial
   for insert to authenticated with check (usuario_id = auth.uid() and public.es_activo());

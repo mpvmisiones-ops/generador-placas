@@ -6,13 +6,16 @@
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=10">
+  <link rel="stylesheet" href="css/app.css?v=11">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
     <div class="marca">Generador de Placas</div>
     <div class="barra-usuario">
       <span id="barra-nombre"></span>
+      <button class="btn btn-chico btn-borde btn-rueda" id="btn-historial" aria-label="Historial" title="Historial" aria-pressed="false">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg>
+      </button>
       <button class="btn btn-chico btn-borde btn-rueda" id="btn-config" aria-label="Configuración" title="Configuración" aria-pressed="false">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
@@ -66,6 +69,10 @@
 
       <div class="seccion" data-seccion="generar">
         <!-- Pantalla del productor (Etapa 3): un paso por vez, pensada primero para el celular -->
+        <div class="g-tanda" id="g-tanda" hidden>
+          <span id="g-tanda-txt"></span>
+          <button type="button" class="btn btn-chico btn-borde" id="g-nueva">Empezar una nueva</button>
+        </div>
         <nav class="g-pasos" id="g-pasos" aria-label="Pasos">
           <button type="button" data-ir="1"><span>1</span> Punteo</button>
           <button type="button" data-ir="2"><span>2</span> Fotos</button>
@@ -75,7 +82,7 @@
         <div class="g-paso" data-paso="1">
           <div class="tarjeta">
             <h2>Pegá el punteo</h2>
-            <p class="suave">Las noticias se separan con /// y los títulos van entre *asteriscos*.</p>
+            <p class="suave">Las noticias se separan con ///. Los títulos van en MAYÚSCULA o entre *asteriscos*.</p>
             <textarea id="g-punteo" rows="8" placeholder="Pegá acá el mensaje de WhatsApp"></textarea>
             <div class="g-fila-chica">
               <button type="button" class="btn btn-chico btn-borde" id="g-pegar">Pegar</button>
@@ -143,7 +150,13 @@
       </div>
 
       <div class="seccion" data-seccion="historial" hidden>
-        <div class="tarjeta"><h2>Historial</h2><p class="suave">Se construye en la Etapa 4.</p></div>
+        <button type="button" class="btn btn-chico btn-borde h-volver" id="h-volver">← Generar placas</button>
+        <div class="tarjeta">
+          <h2>Historial</h2>
+          <p class="suave">Las tandas que se descargaron, de todos los usuarios. Abrí una para corregir una placa y volver a descargarla.</p>
+          <div id="h-lista"></div>
+          <button type="button" class="btn btn-borde h-mas" id="h-mas" hidden>Ver más</button>
+        </div>
       </div>
     </section>
   </main>
@@ -188,12 +201,13 @@
         </label>
         <h3>Foto</h3>
         <div class="g-miniaturas" id="e-fotos"></div>
-        <h3>Acomodar texto</h3>
+        <h3>Acomodar texto y fondo</h3>
         <div class="e-ajustes" id="e-ajustes">
           <label>Tamaño <output data-v="escala"></output><input type="range" data-a="escala" min="50" max="130" step="1"></label>
           <label>Ancho de la caja <output data-v="ancho"></output><input type="range" data-a="ancho" min="50" max="120" step="1"></label>
           <label>Mover ↔ <output data-v="dx"></output><input type="range" data-a="dx" min="-300" max="300" step="2"></label>
           <label>Mover ↕ <output data-v="dy"></output><input type="range" data-a="dy" min="-500" max="300" step="2"></label>
+          <label>Opacidad del fondo <output data-v="opacidad"></output><input type="range" data-a="opacidad" min="0" max="150" step="5"></label>
         </div>
         <div class="e-fila-ajuste">
           <button type="button" class="btn btn-chico btn-borde" id="e-aj-cero">Restablecer</button>
@@ -213,7 +227,7 @@
   <dialog id="dlg-config">
     <form method="dialog">
       <h2>Configuración</h2>
-      <p>La configuración (usuarios, plantillas e historial) es solo para administradores, y <strong id="dlg-config-yo"></strong> es productor.</p>
+      <p>La configuración (usuarios y plantillas) es solo para administradores, y <strong id="dlg-config-yo"></strong> es productor.</p>
       <p class="suave">Para agregar usuarios entrá con el usuario administrador (el que se creó en la primera configuración). Las placas que estás armando no se pierden.</p>
       <div class="fila fila-fin">
         <button class="btn btn-borde" value="cancelar">Cancelar</button>
@@ -227,10 +241,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="js/config.js?v=10"></script>
-  <script src="js/placas.js?v=10"></script>
-  <script src="js/generar.js?v=10"></script>
-  <script src="js/plantillas.js?v=10"></script>
-  <script src="js/app.js?v=10"></script>
+  <script src="js/config.js?v=11"></script>
+  <script src="js/placas.js?v=11"></script>
+  <script src="js/generar.js?v=11"></script>
+  <script src="js/historial.js?v=11"></script>
+  <script src="js/plantillas.js?v=11"></script>
+  <script src="js/app.js?v=11"></script>
 </body>
 </html>
