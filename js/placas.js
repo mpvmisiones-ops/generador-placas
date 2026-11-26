@@ -49,12 +49,13 @@
     const noticias = [];
     for (const b of bloques) {
       if (!b.trim()) continue;
-      const titulos = [];
+      const titulos = [], cuerpo = [];
       const sumar = (t) => { t = limpiarTitulo(t); if (t.length > 3 && !titulos.includes(t)) titulos.push(t); };
       for (const linea of b.split("\n")) { // en el orden en que aparecen
         const conAsteriscos = [...linea.matchAll(/\*([^*\n]+)\*/g)];
         if (conAsteriscos.length) conAsteriscos.forEach(m => sumar(m[1]));
         else if (esMayuscula(limpiarTitulo(linea))) sumar(linea);
+        else cuerpo.push(linea.replace(/[*_~`]/g, "").trim()); // el resto es el texto de la noticia
       }
       let aviso = "";
       if (!titulos.length) { // sin asteriscos ni mayúsculas: tomo la primera línea con texto
@@ -62,7 +63,9 @@
         if (!linea) continue;
         titulos.push(linea); aviso = "Esta noticia no tenía títulos en MAYÚSCULA ni entre *asteriscos*: usé la primera línea.";
       }
-      noticias.push({ titulos, aviso });
+      // Texto de la noticia (para la publicación de Facebook): sin renglones vacíos repetidos.
+      const texto = cuerpo.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+      noticias.push({ titulos, aviso, cuerpo: aviso ? texto.split("\n").slice(1).join("\n").trim() : texto });
     }
     return noticias;
   }

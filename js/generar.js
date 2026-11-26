@@ -110,7 +110,8 @@
           <button class="btn btn-borde" data-acc="atras" aria-label="Volver a las fotos"${dis}>←</button>
           <button class="btn btn-borde" data-acc="mezclar"${dis}>Volver a mezclar</button>
           <button class="btn btn-principal" data-acc="zip"${dis || (estado.placas.length ? "" : " disabled")}>Descargar ZIP</button>
-        </div>`;
+        </div>${window.Facebook?.puede() ? `
+        <button class="btn btn-fb g-pie-fb" data-acc="fb"${dis || (estado.placas.length ? "" : " disabled")}>Publicar en Facebook</button>` : ""}`;
     }
   }
   function accionPie(e) {
@@ -121,6 +122,7 @@
     else if (acc === "atras") navegar(estado.paso - 1);
     else if (acc === "mezclar") armar(true);
     else if (acc === "zip") descargarZip(b);
+    else if (acc === "fb") window.Facebook.abrir();
   }
 
   // ---------- Paso 1: punteo ----------

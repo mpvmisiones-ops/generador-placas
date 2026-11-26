@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
 
     const { accion, ...d } = cuerpo;
     const id = typeof d.id === "string" ? d.id : "";
-    const necesitaId = ["pausar", "reactivar", "cambiar_password", "cambiar_rol"].includes(String(accion));
+    const necesitaId = ["pausar", "reactivar", "cambiar_password", "cambiar_rol", "permiso_facebook"].includes(String(accion));
     if (necesitaId && !ES_UUID.test(id)) return responder({ error: "Usuario inválido." }, 400);
 
     // Cierra todas las sesiones de un usuario (función de la base solo para el servidor).
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
     };
 
     if (accion === "listar") {
-      const { data, error } = await admin.from("perfiles").select("id, usuario, nombre, rol, activo, creado_en").order("usuario");
+      const { data, error } = await admin.from("perfiles").select("id, usuario, nombre, rol, activo, puede_publicar, creado_en").order("usuario");
       if (error) throw error;
       return responder({ usuarios: data });
     }
@@ -115,6 +115,12 @@ Deno.serve(async (req) => {
       const meta = await admin.auth.admin.updateUserById(id, { app_metadata: { rol } });
       if (meta.error) throw meta.error;
       const { error } = await admin.from("perfiles").update({ rol }).eq("id", id);
+      if (error) throw error;
+      return responder({ ok: true });
+    }
+
+    if (accion === "permiso_facebook") { // habilitar o quitar "publicar en Facebook"
+      const { error } = await admin.from("perfiles").update({ puede_publicar: d.valor === true }).eq("id", id);
       if (error) throw error;
       return responder({ ok: true });
     }

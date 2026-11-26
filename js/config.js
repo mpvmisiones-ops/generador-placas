@@ -6,4 +6,8 @@ window.CONFIG = {
   SUPABASE_URL: "https://mkzxrthxgiakbfpyjmls.supabase.co",
   SUPABASE_KEY: "sb_publishable_ovl8M0AlGsPDYdB0JrBl4g_0myOdM_N",
   DOMINIO_USUARIOS: "placas.local",
+  // App de Meta para publicar en Facebook (ver docs/guia-facebook.md). El App ID es público.
+  // META_CONFIG_ID: solo si la app usa "Inicio de sesión con Facebook para empresas".
+  META_APP_ID: "",
+  META_CONFIG_ID: "",
 };

@@ -11,6 +11,7 @@ create table if not exists public.perfiles (
   nombre      text not null default '',
   rol         text not null default 'productor' check (rol in ('admin','productor')),
   activo      boolean not null default true,
+  puede_publicar boolean not null default false, -- publicar en Facebook (lo habilita el admin; ver facebook.sql)
   creado_en   timestamptz not null default now()
 );
 

@@ -165,12 +165,14 @@
             <strong>${esc(u.usuario)}</strong>
             <span class="etiqueta ${u.rol === "admin" ? "etq-admin" : "etq-productor"}">${u.rol === "admin" ? "Admin" : "Productor"}</span>
             ${u.activo ? "" : '<span class="etiqueta etq-pausado">Pausado</span>'}
+            ${u.rol === "admin" || u.puede_publicar ? '<span class="etiqueta etq-fb">Facebook</span>' : ""}
             <div class="suave">${esc(u.nombre) || "&nbsp;"}</div>
           </div>
           ${u.id === perfil.id ? '<span class="suave">(vos)</span>' : `
           <div class="u-acciones">
             <button class="btn btn-chico btn-borde" data-acc="password">Contraseña</button>
             <button class="btn btn-chico btn-borde" data-acc="rol" data-rol="${u.rol === "admin" ? "productor" : "admin"}">${u.rol === "admin" ? "Hacer productor" : "Hacer admin"}</button>
+            ${u.rol === "admin" ? "" : `<button class="btn btn-chico btn-borde" data-acc="facebook" data-valor="${u.puede_publicar ? "" : "1"}">${u.puede_publicar ? "Quitar Facebook" : "Habilitar Facebook"}</button>`}
             <button class="btn btn-chico ${u.activo ? "btn-peligro" : "btn-borde"}" data-acc="${u.activo ? "pausar" : "reactivar"}">${u.activo ? "Pausar" : "Reactivar"}</button>
           </div>`}
         </li>`).join("") || '<li class="suave">Todavía no hay usuarios.</li>';
@@ -185,8 +187,10 @@
     b.disabled = true;
     try {
       if (acc === "rol") await llamarAdmin({ accion: "cambiar_rol", id, rol: b.dataset.rol });
+      else if (acc === "facebook") await llamarAdmin({ accion: "permiso_facebook", id, valor: !!b.dataset.valor });
       else await llamarAdmin({ accion: acc, id });
-      aviso(acc === "pausar" ? "Usuario pausado." : acc === "reactivar" ? "Usuario reactivado." : "Rol actualizado.");
+      aviso(acc === "pausar" ? "Usuario pausado." : acc === "reactivar" ? "Usuario reactivado."
+        : acc === "facebook" ? (b.dataset.valor ? `"${usuario}" ya puede publicar en Facebook.` : `"${usuario}" ya no puede publicar en Facebook.`) : "Rol actualizado.");
       cargarUsuarios();
     } catch (err) { aviso(err.message, true); b.disabled = false; }
   });

@@ -41,3 +41,11 @@ Pensada primero para el celular: un paso por vez, con los botones principales fi
 - Botón del reloj en la barra: lo ven **todos** los usuarios. Cada descarga del ZIP guarda la tanda: punteo, títulos, qué le tocó a cada medio, cambios a mano y las **fotos** (achicadas a 1600 px, Storage privado `historial`).
 - "Abrir y corregir" la carga en Generar tal como quedó; al volver a descargar (o "Guardar esta placa") se **actualiza la misma tanda** y queda "corregida por …". "Empezar una nueva" la suelta.
 - El admin puede borrar tandas (también borra sus fotos). Permisos en `supabase/historial-general.sql`.
+
+## Publicar en Facebook
+
+Desde el paso 3, el botón **Publicar en Facebook** (solo admins y usuarios con "Habilitar Facebook") conecta el Facebook de quien publica y publica o programa cada placa en la página de su medio, con el texto del punteo. Guía completa: `docs/guia-facebook.md`.
+
+- El token de Facebook queda solo en la memoria de la pestaña (inicio de sesión manual de Meta, vuelta por `fb.html`). La base no guarda tokens.
+- Base: `supabase/facebook.sql` (columna `perfiles.puede_publicar`, función `puede_publicar()` y tabla `facebook_paginas` medio → página).
+- Falta cargar `META_APP_ID` en `js/config.js` cuando esté creada la app de Meta.
