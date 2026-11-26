@@ -391,6 +391,28 @@
   const aBlob = (c, tipo = "image/jpeg", calidad = 0.92) => new Promise((ok) => c.toBlob(ok, tipo, calidad));
   const nombreArchivo = (t) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 
+  // 1 o 2 palabras clave de una noticia para el nombre del archivo (así la IA que arma la distribución
+  // empareja cada imagen con su copy). Se eligen las palabras con contenido que más se repiten entre
+  // los títulos de la noticia; a igual cantidad, las más largas. Quedan en el orden en que aparecen.
+  const VACIAS = new Set(("a al algo ante antes como con contra cual cuando de del desde donde durante el ella ellos en entre era es esa ese esta este esto fue han hay hasta la las le les lo los mas muy nos o para pero por que se ser si sin sobre son su sus tambien tiene tras un una uno unos unas ya y " +
+    "anuncio anuncian anunciaron dijo dicen afirmo aseguro sera seran habra hubo hace hacen tienen puede pueden nuevo nueva nuevos nuevas otro otra otros otras todo toda todos todas cada mismo misma segun luego ahora hoy ayer manana dias semana " +
+    "mientras porque aunque desde cuales quien quienes despues donde sigue siguen hasta tener estar estan esta estas estos esos esas " +
+    "misiones misionero misionera misioneros misioneras provincia provincial").split(/\s+/));
+  function palabrasClave(titulos, cuantas = 2) {
+    const limpia = (t) => String(t || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    const lista = (Array.isArray(titulos) ? titulos : [titulos]).map(limpia);
+    const cuenta = new Map(), orden = new Map();
+    lista.forEach((t, k) => (t.match(/[a-z0-9ñ]+/g) || []).forEach((w, i) => {
+      if (w.length < 4 || /^\d+$/.test(w) || VACIAS.has(w)) return;
+      cuenta.set(w, (cuenta.get(w) || 0) + 1);
+      if (!orden.has(w)) orden.set(w, k * 1000 + i);
+    }));
+    return [...cuenta.keys()]
+      .sort((x, y) => cuenta.get(y) - cuenta.get(x) || y.length - x.length || orden.get(x) - orden.get(y))
+      .slice(0, cuantas)
+      .sort((x, y) => orden.get(x) - orden.get(y));
+  }
+
   // ZIP con una carpeta por medio: "Muy Temprano/noticia-1.jpg", etc.
   async function armarZip(items) { // items: [{ carpeta, archivo, blob }]
     if (!window.JSZip) throw new Error("No cargó la librería del ZIP. Revisá la conexión.");
@@ -399,5 +421,5 @@
     return zip.generateAsync({ type: "blob", compression: "STORE" }); // los JPG ya vienen comprimidos
   }
 
-  window.Placas = { ANCHO, ALTO, MEDIOS_DEFECTO, SIN_AJUSTE, RELATIVOS, ABSOLUTOS, hayAjuste, cajaAjustada, opacidadDe, leerPunteo, repartir, cargarMedios, prepararMedios, leerFoto, componer, medirTitulo, aBlob, armarZip, nombreArchivo };
+  window.Placas = { ANCHO, ALTO, MEDIOS_DEFECTO, SIN_AJUSTE, RELATIVOS, ABSOLUTOS, hayAjuste, cajaAjustada, opacidadDe, leerPunteo, repartir, cargarMedios, prepararMedios, leerFoto, componer, medirTitulo, aBlob, armarZip, nombreArchivo, palabrasClave };
 })();

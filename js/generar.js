@@ -488,9 +488,11 @@
     b.disabled = true; b.textContent = "Armando ZIP…";
     try {
       await Promise.all(estado.placas.map(pl => pl.redibujo));
+      // Nombre: número de noticia + 1-2 palabras clave (las mismas en todos los medios) + medio.
+      const claves = estado.noticias.map(n => P.palabrasClave(n.titulos).join("-"));
       const items = estado.placas.map(pl => {
-        const m = medioDe(pl);
-        return { carpeta: m.nombre, archivo: `noticia-${pl.noticia + 1}-${P.nombreArchivo(m.nombre)}.jpg`, blob: pl.blob };
+        const m = medioDe(pl), clave = claves[pl.noticia] ? claves[pl.noticia] + "-" : "";
+        return { carpeta: m.nombre, archivo: `noticia-${pl.noticia + 1}-${clave}${P.nombreArchivo(m.nombre)}.jpg`, blob: pl.blob };
       });
       const zip = await P.armarZip(items);
       descargar(zip, `placas-${new Date().toLocaleDateString("sv-SE")}.zip`); // AAAA-MM-DD
