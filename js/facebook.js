@@ -18,7 +18,6 @@
   let textos = [];            // texto de la publicación por noticia
   let modo = "ahora";         // ahora | elegir | auto
   let publicando = false;
-  const hechas = new WeakMap(); // placa → "Publicada" / "Programada …" (para no repetir sin querer)
 
   const config = () => window.CONFIG || {};
   const G = () => window.Generar.estado;
@@ -40,7 +39,8 @@
     const g = G();
     const cuerpos = window.Placas.leerPunteo($("#g-punteo").value).map(n => n.cuerpo || "");
     textos = g.noticias.map((n, k) => textos[k] && filas.length && filas[0].pl === g.placas[0] ? textos[k] : (cuerpos[k] || n.titulos[0] || ""));
-    filas = g.placas.map((pl, i) => ({ pl, i, medio: pl.medio, sel: !hechas.has(pl), cuando: null, estado: hechas.get(pl) || "", mal: false }));
+    // Lo ya publicado queda anotado en la placa (y en el historial): sale desmarcado para no repetirlo.
+    filas = g.placas.map((pl, i) => ({ pl, i, medio: pl.medio, sel: !pl.facebook, cuando: null, estado: pl.facebook ? textoHecho(pl.facebook) : "", mal: false }));
     nota("");
     dlg.showModal();
     pintar();
@@ -128,6 +128,7 @@
   // ---------- Horarios ----------
   const aLocal = (d) => { if (!d) return ""; const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 16); };
   const hora = (d) => d.toLocaleString("es-AR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const textoHecho = (fb) => (fb.estado === "programada" ? "Ya programada ✓ para " + hora(new Date(fb.cuando)) : "Ya publicada ✓ " + hora(new Date(fb.cuando))) + (fb.pagina ? " · " + fb.pagina : "");
   function inicioSugerido() { const d = new Date(Date.now() + 15 * 60e3); d.setSeconds(0, 0); d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5); return d; }
   // Automático: cada página recibe sus publicaciones separadas por el intervalo (con un poco de variación
   // para que no salgan todas "en punto"), y las páginas arrancan escalonadas entre sí.
@@ -184,7 +185,8 @@
         }
         await graph(`/${pag.id}/photos`, pag.access_token, { body: fd });
         f.estado = modo === "ahora" ? "Publicada ✓" : "Programada ✓ " + hora(f.cuando);
-        f.sel = false; hechas.set(f.pl, f.estado); ok++;
+        f.pl.facebook = { estado: modo === "ahora" ? "publicada" : "programada", cuando: (modo === "ahora" ? new Date() : f.cuando).toISOString(), pagina: pag.name };
+        f.sel = false; ok++;
       } catch (e) {
         f.mal = true; f.estado = "Error: " + e.message;
         if (e.codigo === 190) { cuenta = null; f.estado = "Error: el permiso de Facebook venció. Volvé a conectar."; pintarEstado(f); break; }
@@ -193,6 +195,8 @@
       await new Promise(r => setTimeout(r, 600)); // sin apurar a Facebook
     }
     publicando = false;
+    // Queda anotado en el historial (si la tanda no estaba guardada, se guarda ahora con sus fotos).
+    if (ok) { try { await window.Generar.guardarHistorial?.(); } catch (e) { console.warn("[facebook] historial:", e.message); } }
     const fallas = lista.filter(f => f.mal).length;
     nota(`${modo === "ahora" ? "Publicadas" : "Programadas"}: ${ok} de ${lista.length}.${fallas ? " Las que fallaron quedaron marcadas en rojo." : ""}`, !!fallas);
     pintar();

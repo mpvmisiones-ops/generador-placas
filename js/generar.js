@@ -504,7 +504,7 @@
   // Si la tanda ya estaba guardada (o se abrió desde el historial), se actualiza la misma fila.
   const claveTanda = () => JSON.stringify([
     estado.noticias.map(n => [n.titulos, n.fotos.map(f => f.id)]),
-    estado.placas.map(pl => [pl.noticia, pl.medio, pl.titulo, pl.fotoId, pl.texto, pl.ajuste]),
+    estado.placas.map(pl => [pl.noticia, pl.medio, pl.titulo, pl.fotoId, pl.texto, pl.ajuste, pl.facebook]),
   ]);
   function guardarHistorial() {
     if (!window.sb || estado.guardado === claveTanda()) return; // no repetir si no cambió nada
@@ -524,6 +524,7 @@
             noticia: pl.noticia, medio: pl.medio, titulo: pl.titulo,
             foto: estado.noticias[pl.noticia].fotos.findIndex(f => f.id === pl.fotoId),
             ...(pl.texto != null ? { texto: pl.texto } : {}), ...(P.hayAjuste(pl.ajuste) ? { ajuste: pl.ajuste } : {}), ...(esOriginal(pl) ? {} : { a_mano: true }),
+            ...(pl.facebook ? { facebook: pl.facebook } : {}), // ya publicada o programada (ver js/facebook.js)
           })),
         };
         const punteo = $("#g-punteo").value;
@@ -590,7 +591,8 @@
     return guardadas.filter(p => ids.has(p.medio) && estado.noticias[p.noticia]).map(p => {
       const n = estado.noticias[p.noticia];
       const fotoId = (porIndice[p.noticia]?.[p.foto] || n.fotos[p.foto] || n.fotos[0])?.id;
-      const pl = { noticia: p.noticia, medio: p.medio, titulo: Math.max(0, Math.min(p.titulo ?? 0, n.titulos.length - 1)), fotoId, texto: p.texto ?? null, ajuste: p.ajuste || null };
+      const pl = { noticia: p.noticia, medio: p.medio, titulo: Math.max(0, Math.min(p.titulo ?? 0, n.titulos.length - 1)), fotoId, texto: p.texto ?? null, ajuste: p.ajuste || null,
+        facebook: p.facebook && typeof p.facebook === "object" ? p.facebook : null };
       pl.orig = { titulo: pl.titulo, fotoId };
       return pl;
     });
@@ -657,5 +659,5 @@
     return true;
   }
 
-  window.Generar = { iniciar, estado, abrirTanda };
+  window.Generar = { iniciar, estado, abrirTanda, guardarHistorial };
 })();

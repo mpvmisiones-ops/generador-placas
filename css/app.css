@@ -332,3 +332,4 @@ dialog.hoja[open] { display: flex; flex-direction: column; }
 .fb-estado { font-weight: 700; color: var(--ok); font-size: .85rem; }
 .fb-estado.mal { color: var(--peligro); }
 #fb-publicar { margin-top: .6rem; }
+.h-fb { display: inline-block; margin: .3rem 0 0; padding: .15rem .55rem; border-radius: 999px; background: #e7efff; color: #1b4fbf; font-size: .85rem; font-weight: 700; }

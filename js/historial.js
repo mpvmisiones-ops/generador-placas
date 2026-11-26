@@ -45,6 +45,7 @@
       const r = f.resultado && typeof f.resultado === "object" ? f.resultado : {};
       const ns = lista(r.noticias).filter(n => n && typeof n === "object");
       const fotos = ns.reduce((s, n) => s + lista(n.fotos).filter(x => x?.path).length, 0);
+      const fb = lista(r.placas).filter(p => p && typeof p.facebook === "object" && p.facebook);
       const autor = autores.get(f.usuario_id) || "", corrector = f.editado_por ? (autores.get(f.editado_por) || "alguien") : "";
       f._autor = autor;
       return `
@@ -54,6 +55,7 @@
             <span class="suave">${esc(autor)}${corrector ? ` · corregida por ${esc(corrector)} el ${esc(fecha(f.editado_en))}` : ""}</span>
           </div>
           <ol class="h-titulos">${ns.map(n => `<li>${esc(String(lista(n.titulos)[0] ?? ""))}</li>`).join("")}</ol>
+          ${fb.length ? `<p class="h-fb">Facebook: ${fb.length} de ${plural(lista(r.placas).length, "placa", "placas")} ya ${fb.some(p => p.facebook.estado === "programada") ? "publicadas o programadas" : "publicadas"}</p>` : ""}
           <p class="suave h-datos">${plural(ns.length, "noticia", "noticias")} · ${plural(lista(r.placas).length, "placa", "placas")} · ${fotos ? plural(fotos, "foto guardada", "fotos guardadas") : "sin fotos guardadas (es de antes del 23/11: hay que volver a cargarlas)"}</p>
           <div class="h-acciones">
             <button type="button" class="btn btn-chico btn-principal" data-acc="abrir">Abrir y corregir</button>
