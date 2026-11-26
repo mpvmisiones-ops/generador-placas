@@ -136,9 +136,22 @@
       aviso("Mantené apretado el cuadro y elegí «Pegar».");
     }
   }
+  // Títulos de la tanda guardada que está en pantalla: sirven para darse cuenta de que se pegó
+  // un punteo NUEVO encima (entonces se guarda como tanda aparte y no pisa la anterior).
+  const clavesTitulos = (ns) => ns.flatMap(n => n.titulos || []).map(t => String(t).trim().toUpperCase()).filter(Boolean);
+  function recordarTitulos() { estado.titulosTanda = new Set(clavesTitulos(estado.noticias)); }
+  function esOtraTanda(ns) {
+    if (!estado.historialId || !estado.titulosTanda?.size || !ns.length) return false;
+    const siguen = ns.filter(n => clavesTitulos([n]).some(t => estado.titulosTanda.has(t))).length;
+    return siguen < ns.length / 2; // menos de la mitad de las noticias coincide: es otra tanda
+  }
   function leer() {
     const viejas = estado.noticias;
     estado.noticias = P.leerPunteo($("#g-punteo").value);
+    if (esOtraTanda(estado.noticias)) {
+      olvidarTanda();
+      aviso("Punteo nuevo: se va a guardar como otra tanda en el historial (la anterior no se toca).");
+    }
     // Si se edita el texto, cada noticia conserva las fotos que ya tenía.
     estado.noticias.forEach((n, i) => { n.fotos = viejas[i]?.fotos || []; if (viejas[i]?.usadas) n.usadas = viejas[i].usadas; });
     viejas.slice(estado.noticias.length).forEach(n => n.fotos.forEach(soltarFoto)); // noticias borradas
@@ -537,7 +550,7 @@
           error = r.error; if (!error) estado.historialId = r.data.id;
         }
         if (error) throw error;
-        estado.guardado = clave;
+        estado.guardado = clave; recordarTitulos();
         aviso(sinSubir ? `Guardado en el historial, pero ${plural(sinSubir, "foto no se pudo subir", "fotos no se pudieron subir")}.` : "Guardado en el historial.", !!sinSubir);
       } catch (e) {
         console.warn("[placas] no se guardó el historial:", e.message);
@@ -568,7 +581,7 @@
     olvidarTanda();
   }
   function olvidarTanda() {
-    Object.assign(estado, { historialId: null, historialInfo: null, guardado: null });
+    Object.assign(estado, { historialId: null, historialInfo: null, guardado: null, titulosTanda: null });
     pintarTanda();
   }
   function pintarTanda() {
@@ -638,7 +651,7 @@
       estado.historialId = fila.id;
       estado.historialInfo = { fecha: new Date(fila.creado_en).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }), autor: fila._autor || "" };
       estado.firma = firma();
-      estado.guardado = claveTanda();
+      estado.guardado = claveTanda(); recordarTitulos();
     } catch (e) {
       console.error(e); aviso("No se pudo abrir la tanda: " + e.message, true);
     }
