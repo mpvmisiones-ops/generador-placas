@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <!-- Seguridad: solo se cargan scripts/conexiones de estos sitios (GitHub Pages no permite cabeceras) -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://mkzxrthxgiakbfpyjmls.supabase.co; img-src 'self' blob: data: https://mkzxrthxgiakbfpyjmls.supabase.co; connect-src 'self' https://mkzxrthxgiakbfpyjmls.supabase.co wss://mkzxrthxgiakbfpyjmls.supabase.co https://graph.facebook.com; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self' blob:; media-src 'self' blob:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://mkzxrthxgiakbfpyjmls.supabase.co; img-src 'self' blob: data: https://mkzxrthxgiakbfpyjmls.supabase.co; connect-src 'self' https://mkzxrthxgiakbfpyjmls.supabase.co wss://mkzxrthxgiakbfpyjmls.supabase.co https://graph.facebook.com https://rupload.facebook.com; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self' blob:; media-src 'self' blob:">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=32">
+  <link rel="stylesheet" href="css/app.css?v=33">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
@@ -274,7 +274,20 @@
         <h3>2. Página de cada medio</h3>
         <p class="suave">Se elige una sola vez y queda guardado para todos.</p>
         <div id="fb-medios" class="fb-medios"></div>
-        <h3>3. Cuándo</h3>
+        <h3>3. Qué publicar</h3>
+        <div class="e-segm" id="fb-tipo">
+          <button type="button" data-tipo="foto">Placa fija</button><button type="button" data-tipo="reel">Reel (video vertical)</button><button type="button" data-tipo="video">Video en el feed</button>
+        </div>
+        <div class="fb-video-op" id="fb-video-op" hidden>
+          <label id="fb-vformato-l">Diseño del Reel
+            <select id="fb-vformato"><option value="reel">Reel completo</option><option value="reel-centro">Placa al centro</option></select></label>
+          <label>Animación
+            <select id="fb-vestilo"><option value="suave">Suave</option><option value="dinamico">Dinámica</option><option value="quieta">Solo zoom</option></select></label>
+          <label>Duración
+            <select id="fb-vdur"><option value="6">6 s</option><option value="8" selected>8 s</option><option value="10">10 s</option></select></label>
+        </div>
+        <p class="suave fb-ayuda" id="fb-tipo-ayuda"></p>
+        <h3>4. Cuándo</h3>
         <div class="e-segm" id="fb-modo">
           <button type="button" data-modo="auto">Automático</button><button type="button" data-modo="ahora">Ahora</button><button type="button" data-modo="elegir">Elijo la hora</button>
         </div>
@@ -285,7 +298,7 @@
           <label>Variación al azar (min) <input type="number" id="fb-vari" min="0" max="30" value="6"></label>
           <button type="button" class="btn btn-chico btn-borde" data-fb="repartir">🔀 Volver a repartir</button>
         </div>
-        <h3>4. Placas y texto</h3>
+        <h3>5. Placas y texto</h3>
         <label class="fb-copy-op"><input type="checkbox" id="fb-variar"> Opciones de copy <span class="suave">(un texto distinto por página)</span></label>
         <div class="fb-copy-cfg" id="fb-copy-cfg" hidden>
           <label>Variantes por noticia
@@ -348,13 +361,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js" integrity="sha384-EyR2P0dlmjnEGcm9xcjdAn0VedZpRHEwDLP9oSS6wYMvzHBHkUrvgonveazJ/sSx" crossorigin="anonymous"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
-  <script src="js/config.js?v=32"></script>
-  <script src="js/placas.js?v=32"></script>
-  <script src="js/generar.js?v=32"></script>
-  <script src="js/historial.js?v=32"></script>
-  <script src="js/facebook.js?v=32"></script>
-  <script src="js/video.js?v=32"></script>
-  <script src="js/plantillas.js?v=32"></script>
-  <script src="js/app.js?v=32"></script>
+  <script src="js/config.js?v=33"></script>
+  <script src="js/placas.js?v=33"></script>
+  <script src="js/generar.js?v=33"></script>
+  <script src="js/historial.js?v=33"></script>
+  <script src="js/facebook.js?v=33"></script>
+  <script src="js/video.js?v=33"></script>
+  <script src="js/plantillas.js?v=33"></script>
+  <script src="js/app.js?v=33"></script>
 </body>
 </html>

@@ -366,3 +366,9 @@ dialog.hoja[open] { display: flex; flex-direction: column; }
   .hoja-video .v-vista { box-shadow: none; padding: 16px; }
   .hoja-video .v-vista canvas { height: auto; max-height: calc(min(780px, 100dvh - 48px) - 150px); width: auto; max-width: 100%; }
 }
+.fb-pegar { border: 1px dashed #9fb7e8; border-radius: 10px; padding: .4rem .6rem; margin: .4rem 0; background: #fbfcff; }
+.fb-pegar label { font-size: .85rem; font-weight: 600; margin: 0; }
+.fb-pegar textarea { width: 100%; font-size: .9rem; margin: .3rem 0; }
+.fb-video-op { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .5rem; margin-top: .5rem; }
+.fb-video-op label { margin: 0; font-size: .88rem; }
+.fb-video-op select { width: 100%; min-height: 40px; }

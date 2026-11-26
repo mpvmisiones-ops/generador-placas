@@ -18,6 +18,8 @@
   let textos = [];            // texto de la publicación por noticia
   let modo = "auto";          // auto (escalonado) | ahora (la primera ya, el resto escalonado) | elegir
   let variar = false, nVar = 9, semillaCopy = 0;
+  let tipoPub = "foto";       // foto (placa fija) | reel (video vertical) | video (video en el feed)
+  const NOMBRE_TIPO = { foto: "placa", reel: "Reel", video: "video" };
   let copies = [];            // por noticia: [{ texto, editado }] (opciones de copy)
   let publicando = false;
 
@@ -36,15 +38,24 @@
       dlg.addEventListener("click", alClic);
       dlg.addEventListener("change", alCambiar);
       dlg.addEventListener("input", alEscribir);
+      // Al pegar un bloque de copys, se separa solo.
+      dlg.addEventListener("paste", (e) => {
+        const t = e.target.closest?.("[data-pegar]"); if (!t) return;
+        setTimeout(() => { if (t.value.trim()) aplicarPegado(+t.dataset.pegar, t.value); }, 0);
+      });
       window.addEventListener("popstate", () => { if (dlg.open && !publicando) dlg.close(); });
       conectado = true;
     }
     const g = G();
     const cuerpos = window.Placas.leerPunteo($("#g-punteo").value).map(n => n.cuerpo || "");
-    textos = g.noticias.map((n, k) => textos[k] && filas.length && filas[0].pl === g.placas[0] ? textos[k] : (cuerpos[k] || n.titulos[0] || ""));
+    // Misma tanda que la vez anterior: se conservan textos y copys (pegados o editados).
+    const misma = filas.length > 0 && filas[0].pl === g.placas[0] && filas.length === g.placas.length;
+    const antes = new Map(filas.map(f => [f.pl, f]));
+    textos = g.noticias.map((n, k) => misma && textos[k] ? textos[k] : (cuerpos[k] || n.titulos[0] || ""));
     // Lo ya publicado queda anotado en la placa (y en el historial): sale desmarcado para no repetirlo.
-    filas = g.placas.map((pl, i) => ({ pl, i, medio: pl.medio, sel: !pl.facebook, cuando: null, estado: pl.facebook ? textoHecho(pl.facebook) : "", mal: false }));
-    copies = []; filas.forEach(f => { f.variante = null; });
+    filas = g.placas.map((pl, i) => ({ pl, i, medio: pl.medio, sel: !pl.facebook, cuando: null, estado: pl.facebook ? textoHecho(pl.facebook) : "", mal: false,
+      variante: misma ? antes.get(pl)?.variante ?? null : null, varManual: misma ? !!antes.get(pl)?.varManual : false }));
+    if (!misma) copies = [];
     nota("");
     dlg.showModal();
     pintar();
@@ -167,7 +178,7 @@
   // ---------- Horarios ----------
   const aLocal = (d) => { if (!d) return ""; const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 16); };
   const hora = (d) => d.toLocaleString("es-AR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
-  const textoHecho = (fb) => (fb.estado === "programada" ? "Ya programada ✓ para " + hora(new Date(fb.cuando)) : "Ya publicada ✓ " + hora(new Date(fb.cuando))) + (fb.pagina ? " · " + fb.pagina : "");
+  const textoHecho = (fb) => (fb.estado === "programada" ? "Ya programada ✓ para " + hora(new Date(fb.cuando)) : "Ya publicada ✓ " + hora(new Date(fb.cuando))) + (fb.tipo && fb.tipo !== "foto" ? ` (${NOMBRE_TIPO[fb.tipo]})` : "") + (fb.pagina ? " · " + fb.pagina : "");
   function inicioSugerido() { const d = new Date(Date.now() + 15 * 60e3); d.setSeconds(0, 0); d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5); return d; }
   // Escalonado (para que Facebook no lo tome como una red publicando en bloque):
   // · las páginas se turnan (una placa de cada página por vuelta, nunca todas juntas);
@@ -207,7 +218,7 @@
     });
     const fechas = q.map(f => f.cuando).filter(Boolean);
     const nombres = [...new Set(q.map(f => paginaDe(f.medio).name))];
-    const muchas = nombres.map(n => [n, q.filter(f => paginaDe(f.medio).name === n).length]).filter(([, c]) => c > 6);
+    const muchas = nombres.map(n => [n, q.filter(f => paginaDe(f.medio).name === n).length]).filter(([, c]) => c > (tipoPub === "reel" ? 30 : 6));
     if (!silencioso || muchas.length) nota(
       (fechas.length ? `${ahora ? "La primera sale ya; " : ""}${plural(fechas.length, "publicación programada", "publicaciones programadas")} entre ${hora(new Date(Math.min(...fechas)))} y ${hora(new Date(Math.max(...fechas)))}. ` : "Sale ya. ") +
       `Al menos ${Math.round(hueco)} min entre páginas y ${cada} min en la misma página.` +
@@ -252,13 +263,47 @@
   function asignarVariantes() {
     if (!variar) return;
     G().noticias.forEach((n, k) => {
-      if (!copies[k] || copies[k].length !== nVar) armarCopies(k);
+      if (!copies[k] || (!copies[k].pegado && copies[k].length !== nVar)) armarCopies(k);
+      const total = copies[k].length;
       let j = 0;
       filas.filter(f => f.pl.noticia === k && paginaDe(f.medio)).forEach(f => {
-        if (f.varManual && f.variante < nVar) return;
-        f.variante = j++ % nVar;
+        if (f.varManual && f.variante < total) return;
+        f.variante = j++ % total;
       });
     });
+  }
+  // Bloque de copys pegado (por ejemplo, el que arma ChatGPT): se separa por los números del principio
+  // de cada copy (1. 1) 1- 1: "Copy 1" "Opción 1" 1️⃣) y se les saca el número. Los números tienen que
+  // ir en orden, así un renglón como "38 grados el sábado" no se confunde con un número de copy.
+  function separarCopys(texto) {
+    const lineas = String(texto || "").replace(/\r/g, "").split("\n");
+    const marca = /^\s*[*_#>•\-\s]*(?:(?:copy|opci[oó]n|variante|texto)\s*(\d{1,2})\s*[.):\-–—]?|(\d{1,2})\s*[.):\-–—]|(\d{1,2})\uFE0F?\u20E3)\s*[*_]*\s*/i;
+    const items = [];
+    let actual = null, esperado = null;
+    for (const l of lineas) {
+      const m = l.match(marca), num = m ? +(m[1] || m[2] || m[3]) : null;
+      if (m && (esperado === null || num === esperado)) {
+        if (actual) items.push(actual);
+        actual = [l.slice(m[0].length)];
+        esperado = num + 1;
+      } else if (actual) actual.push(l);
+    }
+    if (actual) items.push(actual);
+    let lista = items.map(ls => ls.join("\n"));
+    if (!lista.length) lista = String(texto || "").split(/\n\s*\n/); // sin números: un copy por párrafo
+    return lista.map(t => t.trim().replace(/^\*\*(.*)\*\*$/s, "$1").replace(/^["“«](.*)["”»]$/s, "$1").trim()).filter(Boolean);
+  }
+  function aplicarPegado(k, texto) {
+    let lista = separarCopys(texto);
+    if (!lista.length) return nota("No encontré copys en lo que pegaste.", true);
+    const sobran = lista.length > 9 ? lista.length - 9 : 0;
+    lista = lista.slice(0, 9);
+    copies[k] = lista.map(t => ({ texto: t, editado: true }));
+    copies[k].pegado = true;
+    variar = true;
+    filas.forEach(f => { if (f.pl.noticia === k) f.varManual = false; });
+    asignarVariantes(); pintar();
+    nota(`Noticia ${k + 1}: ${plural(lista.length, "copy cargado", "copys cargados")} y repartidos entre las páginas.${sobran ? ` Se usaron los primeros 9 (sobraban ${sobran}).` : ""}`, !!sobran);
   }
   const textoDe = (f) => variar ? (copies[f.pl.noticia]?.[f.variante ?? 0]?.texto ?? textos[f.pl.noticia]) : textos[f.pl.noticia];
 
@@ -277,6 +322,62 @@
     });
     return nuevas;
   }
+  // ---------- Subidas ----------
+  const cuandoSeg = (f) => String(Math.floor(f.cuando.getTime() / 1000));
+  async function subirFoto(pag, f, texto) {
+    const fd = new FormData();
+    fd.append("source", f.pl.blob, "placa.jpg");
+    if (texto) fd.append("message", texto);
+    if (!f.cuando) fd.append("published", "true");
+    else { fd.append("published", "false"); fd.append("scheduled_publish_time", cuandoSeg(f)); fd.append("unpublished_content_type", "SCHEDULED"); }
+    await graph(`/${pag.id}/photos`, pag.access_token, { body: fd });
+  }
+  // Video de la placa: se arma en el momento (o se reusa si ya estaba hecho con las mismas opciones).
+  const opcionesVideo = () => ({
+    formato: tipoPub === "reel" ? $("#fb-vformato").value : "placa",
+    estilo: $("#fb-vestilo").value, duracion: +$("#fb-vdur").value || 8,
+  });
+  async function videoDe(pl) {
+    const op = opcionesVideo(), g = G();
+    const v = pl.video;
+    if (v && v.formato === op.formato && v.estilo === op.estilo && v.duracion === op.duracion && v.ext === "mp4") return v.blob;
+    const medio = g.medios.find(m => m.id === pl.medio);
+    const foto = g.noticias[pl.noticia]?.fotos.find(x => x.id === pl.fotoId)?.bmp;
+    const titulo = pl.texto ?? g.noticias[pl.noticia].titulos[pl.titulo];
+    const r = await window.Videos.codificar(window.Placas.prepararAnimacion({ medio, foto, titulo, ajuste: pl.ajuste, ...op }));
+    if (r.ext !== "mp4") throw new Error("este navegador no puede armar MP4 (probá con Chrome o Edge actualizados)");
+    pl.video = { blob: r.blob, ext: r.ext, ...op };
+    return r.blob;
+  }
+  async function subirVideo(pag, f, texto, video) {
+    const fd = new FormData();
+    fd.append("source", video, "placa.mp4");
+    if (texto) fd.append("description", texto);
+    if (!f.cuando) fd.append("published", "true");
+    else { fd.append("published", "false"); fd.append("scheduled_publish_time", cuandoSeg(f)); }
+    await graph(`/${pag.id}/videos`, pag.access_token, { body: fd });
+  }
+  // Reels: 1) se abre la subida, 2) se manda el archivo a rupload.facebook.com, 3) se publica o programa.
+  async function subirReel(pag, f, texto, video) {
+    const ini = new FormData(); ini.append("upload_phase", "start");
+    const { video_id, upload_url } = await graph(`/${pag.id}/video_reels`, pag.access_token, { body: ini });
+    let r;
+    try {
+      r = await fetch(upload_url || `https://rupload.facebook.com/video-upload/${VERSION}/${video_id}`, {
+        method: "POST", body: video,
+        headers: { Authorization: "OAuth " + pag.access_token, offset: "0", file_size: String(video.size) },
+      });
+    } catch { throw new Error("Facebook no dejó subir el Reel desde el navegador. Probá con «Video en el feed»."); }
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.error || j.success === false) throw new Error(j.error?.message || j.debug_info?.message || "no se pudo subir el Reel");
+    const fin = new FormData();
+    fin.append("upload_phase", "finish"); fin.append("video_id", video_id);
+    if (texto) fin.append("description", texto);
+    if (!f.cuando) fin.append("video_state", "PUBLISHED");
+    else { fin.append("video_state", "SCHEDULED"); fin.append("scheduled_publish_time", cuandoSeg(f)); }
+    await graph(`/${pag.id}/video_reels`, pag.access_token, { body: fin });
+  }
+
   async function publicar() {
     if (G().soloLectura && !window.Generar.corregirAjena("Para publicar, el Generador anota en la tanda qué placas salieron (así nadie las repite).")) return;
     const otras = await marcasFrescas();
@@ -287,6 +388,11 @@
     if (modo !== "elegir") repartir(true); // horarios frescos (el reloj avanzó desde que se repartieron)
     const ya = lista.filter(f => !f.cuando).length; // solo la primera en "Ahora"
     if (ya > 1) return nota("Solo una placa puede salir en el momento; el resto se escalona.", true);
+    if (tipoPub === "reel") { // Facebook: hasta 30 Reels por página cada 24 horas desde una app
+      const porPag = {}; lista.forEach(f => { const n = paginaDe(f.medio).name; porPag[n] = (porPag[n] || 0) + 1; });
+      const pasa = Object.entries(porPag).find(([, c]) => c > 30);
+      if (pasa) return nota(`${pasa[0]} recibiría ${pasa[1]} Reels: Facebook permite hasta 30 por día. Destildá algunos.`, true);
+    }
     const mal = lista.find(f => f.cuando && (f.cuando - Date.now() < MIN_PROG - 60e3 || f.cuando - Date.now() > MAX_PROG));
     if (mal) return nota(`Revisá el horario de ${window.Generar.estado.medios.find(m => m.id === mal.medio)?.nombre} (noticia ${mal.pl.noticia + 1}): tiene que ser entre 10 minutos y 29 días desde ahora.`, true);
     if (modo === "elegir") {
@@ -299,29 +405,27 @@
     }
     const vacio = lista.find(f => !textoDe(f)?.trim());
     if (vacio && !confirm(`La noticia ${vacio.pl.noticia + 1} no tiene texto. ¿Publicar solo con la imagen?`)) return;
-    if (!confirm(ya ? `¿Publicar 1 placa AHORA y programar ${plural(lista.length - 1, "placa", "placas")} escalonadas en Facebook?` : `¿Programar ${plural(lista.length, "placa", "placas")} escalonadas en Facebook?`)) return;
+    const como = tipoPub === "foto" ? "" : ` como ${tipoPub === "reel" ? "Reels" : "videos"} (se arman los videos ahora)`;
+    if (!confirm((ya ? `¿Publicar 1 AHORA y programar ${lista.length - 1} escalonadas en Facebook` : `¿Programar ${plural(lista.length, "publicación", "publicaciones")} escalonadas en Facebook`) + como + "?")) return;
     publicando = true; pintar();
     let ok = 0;
     try {
     await Promise.all(lista.map(f => f.pl.redibujo));
     for (const f of lista) {
       const pag = paginaDe(f.medio);
-      f.estado = "Subiendo…"; f.mal = false; pintarEstado(f);
+      f.estado = tipoPub === "foto" ? "Subiendo…" : "Armando el video…"; f.mal = false; pintarEstado(f);
       try {
         if (!pag.access_token) throw new Error("Tu Facebook no administra la página " + pag.name + ".");
-        const fd = new FormData();
-        fd.append("source", f.pl.blob, "placa.jpg");
         const texto = textoDe(f)?.trim();
-        if (texto) fd.append("message", texto);
-        if (!f.cuando) fd.append("published", "true");
+        if (tipoPub === "foto") await subirFoto(pag, f, texto);
         else {
-          fd.append("published", "false");
-          fd.append("scheduled_publish_time", String(Math.floor(f.cuando.getTime() / 1000)));
-          fd.append("unpublished_content_type", "SCHEDULED");
+          const video = await videoDe(f.pl);
+          f.estado = "Subiendo el video…"; pintarEstado(f);
+          if (tipoPub === "video") await subirVideo(pag, f, texto, video);
+          else await subirReel(pag, f, texto, video);
         }
-        await graph(`/${pag.id}/photos`, pag.access_token, { body: fd });
-        f.estado = !f.cuando ? "Publicada ✓" : "Programada ✓ " + hora(f.cuando);
-        f.pl.facebook = { estado: !f.cuando ? "publicada" : "programada", cuando: (f.cuando || new Date()).toISOString(), pagina: pag.name };
+        f.estado = (!f.cuando ? "Publicada ✓" : "Programada ✓ " + hora(f.cuando)) + (tipoPub === "foto" ? "" : ` (${NOMBRE_TIPO[tipoPub]})`);
+        f.pl.facebook = { estado: !f.cuando ? "publicada" : "programada", cuando: (f.cuando || new Date()).toISOString(), pagina: pag.name, tipo: tipoPub };
         f.sel = false; ok++;
         window.Generar.guardarHistorial?.({ silencioso: true }); // queda anotada enseguida en la tanda
       } catch (e) {
@@ -365,6 +469,12 @@
     $("#fb-modo-ayuda").textContent = modo === "auto" ? "Recomendado: las páginas se turnan y cada una espera su intervalo, con un poco de azar. Así Facebook no lo toma como publicación en bloque."
       : modo === "ahora" ? "Sale una sola placa en el momento; el resto se programa escalonado igual que en Automático."
       : "Elegís la hora de cada placa. Si quedan muy juntas, te aviso antes de programar.";
+    document.querySelectorAll("#fb-tipo [data-tipo]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.tipo === tipoPub)));
+    $("#fb-video-op").hidden = tipoPub === "foto";
+    $("#fb-vformato-l").hidden = tipoPub !== "reel";
+    $("#fb-tipo-ayuda").textContent = tipoPub === "foto" ? "Se publica la placa como imagen."
+      : tipoPub === "reel" ? "Cada placa se convierte en un video vertical animado y se sube como Reel (hasta 30 por página por día). Los videos se arman en este dispositivo al publicar."
+      : "Cada placa se convierte en un video 4:5 animado y se sube al feed de la página.";
     $("#fb-variar").checked = variar; $("#fb-copy-cfg").hidden = !variar; $("#fb-nvar").value = String(nVar);
     if (!$("#fb-desde").value) $("#fb-desde").value = aLocal(inicioSugerido());
 
@@ -374,7 +484,10 @@
       return `<section class="fb-noticia">
         <h3>Noticia ${k + 1}: ${esc(n.titulos[0] || "")}</h3>
         <label>${variar ? "Texto base de la noticia" : "Texto de la publicación"}<textarea rows="4" data-texto="${k}"${publicando ? " disabled" : ""}>${esc(textos[k] || "")}</textarea></label>
-        ${variar && copies[k] ? `<details class="fb-copies"${k === 0 ? " open" : ""}><summary>${plural(nVar, "opción de copy", "opciones de copy")} (se reparten entre las páginas)</summary>
+        ${variar ? `<div class="fb-pegar"><label>📋 Pegá acá todos los copys de esta noticia, numerados (1. 2. 3.…): se separan solos
+          <textarea rows="2" data-pegar="${k}" placeholder="1. Primer copy…&#10;2. Segundo copy…"${publicando ? " disabled" : ""}></textarea></label>
+          <button type="button" class="btn btn-chico btn-borde" data-fb="separar" data-k="${k}">Separar copys</button></div>` : ""}
+        ${variar && copies[k] ? `<details class="fb-copies"${k === 0 || copies[k].pegado ? " open" : ""}><summary>${plural(copies[k].length, "opción de copy", "opciones de copy")}${copies[k].pegado ? " pegadas" : ""} (se reparten entre las páginas)</summary>
           ${copies[k].map((c, j) => `<label class="fb-copy">Copy ${j + 1}${c.editado ? ' <span class="suave">(editado)</span>' : ""}<textarea rows="3" data-copy="${k}-${j}"${publicando ? " disabled" : ""}>${esc(c.texto)}</textarea></label>`).join("")}
         </details>` : ""}
         ${suyas.map(f => {
@@ -409,6 +522,8 @@
   }
 
   function alClic(e) {
+    const tb = e.target.closest("[data-tipo]");
+    if (tb && !publicando) { tipoPub = tb.dataset.tipo; return modo === "elegir" ? pintar() : repartir(true); }
     const b = e.target.closest("[data-fb], [data-modo]"); if (!b || publicando) return;
     if (b.dataset.modo) {
       modo = b.dataset.modo;
@@ -420,6 +535,7 @@
     if (acc === "cerrar") $("#dlg-fb").close();
     else if (acc === "conectar") conectar();
     else if (acc === "repartir") repartir();
+    else if (acc === "separar") { const k = +b.dataset.k, t = document.querySelector(`[data-pegar="${k}"]`); aplicarPegado(k, t?.value); }
     else if (acc === "mezclar") { semillaCopy++; G().noticias.forEach((n, k) => armarCopies(k)); asignarVariantes(); pintar(); nota("Nuevas opciones de copy (las editadas a mano se mantienen)."); }
     else if (acc === "publicar") { if (conectada()) publicar(); else conectar(); }
   }
@@ -427,7 +543,7 @@
     const t = e.target;
     if (t.matches("select[data-medio]")) return asignar(t.dataset.medio, t.value).then(reajustar);
     if (t.id === "fb-variar") { variar = t.checked; copies = []; filas.forEach(f => { f.variante = null; f.varManual = false; }); asignarVariantes(); return pintar(); }
-    if (t.id === "fb-nvar") { nVar = Math.max(1, Math.min(9, +t.value || 9)); filas.forEach(f => { f.varManual = false; }); copies = copies.map(() => null); asignarVariantes(); return pintar(); }
+    if (t.id === "fb-nvar") { nVar = Math.max(1, Math.min(9, +t.value || 9)); filas.forEach(f => { f.varManual = false; }); copies = copies.map(c => (c?.pegado ? c : null)); asignarVariantes(); return pintar(); }
     if (t.id === "fb-cada" || t.id === "fb-vari" || t.id === "fb-desde") { if (modo !== "elegir") repartir(); return; }
     if (t.matches("[data-texto]")) { if (variar) { armarCopies(+t.dataset.texto); pintar(); } return; }
     const fila = t.closest("[data-fila]"); if (!fila) return;
