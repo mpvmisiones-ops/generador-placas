@@ -34,6 +34,8 @@
     $("#g-pegar").addEventListener("click", pegar);
     $("#g-borrar").addEventListener("click", () => { $("#g-punteo").value = ""; olvidarTanda(); leer(); $("#g-punteo").focus(); });
     $("#g-nueva").addEventListener("click", nuevaTanda);
+    $("#g-corregir-tanda").addEventListener("click", () => corregirAjena());
+    $("#g-copia-tanda").addEventListener("click", guardarComoMia);
     $("#g-ver-historial").addEventListener("click", () => window.irA?.("historial"));
     $("#g-fotos").addEventListener("change", fotosElegidas);
     $("#g-fotos").addEventListener("click", quitarFoto);
@@ -121,7 +123,11 @@
     if (acc === "ir2") navegar(2);
     else if (acc === "ir3") navegar(3);
     else if (acc === "atras") navegar(estado.paso - 1);
-    else if (acc === "mezclar") armar(true);
+    else if (acc === "mezclar") {
+      const pub = estado.placas.filter(p => p.facebook).length;
+      if (pub && !confirm(`${plural(pub, "placa de esta tanda ya está publicada o programada", "placas de esta tanda ya están publicadas o programadas")} en Facebook. Al mezclar, esas siguen marcadas como publicadas para no repetirlas. ¿Mezclar igual?`)) return;
+      armar(true);
+    }
     else if (acc === "zip") descargarZip(b);
     else if (acc === "fb") window.Facebook.abrir();
   }
@@ -140,11 +146,15 @@
   // Títulos de la tanda guardada que está en pantalla: sirven para darse cuenta de que se pegó
   // un punteo NUEVO encima (entonces se guarda como tanda aparte y no pisa la anterior).
   const clavesTitulos = (ns) => ns.flatMap(n => n.titulos || []).map(t => String(t).trim().toUpperCase()).filter(Boolean);
-  function recordarTitulos() { estado.titulosTanda = new Set(clavesTitulos(estado.noticias)); }
+  function recordarTitulos() { estado.titulosTanda = estado.noticias.map(n => clavesTitulos([n])).filter(ts => ts.length); }
+  // Es la misma tanda mientras sigan al menos la mitad de las noticias que ya tenía guardadas
+  // (agregar noticias o corregir títulos no la parte; pegar un punteo totalmente distinto, sí).
   function esOtraTanda(ns) {
-    if (!estado.historialId || !estado.titulosTanda?.size || !ns.length) return false;
-    const siguen = ns.filter(n => clavesTitulos([n]).some(t => estado.titulosTanda.has(t))).length;
-    return siguen < ns.length / 2; // menos de la mitad de las noticias coincide: es otra tanda
+    const viejas = estado.titulosTanda;
+    if (!estado.historialId || !viejas?.length || !ns.length) return false;
+    const ahora = new Set(clavesTitulos(ns));
+    const siguen = viejas.filter(ts => ts.some(t => ahora.has(t))).length;
+    return siguen < viejas.length / 2;
   }
   function leer() {
     const viejas = estado.noticias;
@@ -225,6 +235,8 @@
 
       // Las placas cambiadas a mano se conservan (si su título y su foto todavía existen).
       const aMano = new Map(estado.placas.filter(p => !esOriginal(p)).map(p => [p.noticia + "|" + p.medio, p]));
+      // Lo ya publicado en Facebook sigue anotado por noticia y medio (no se pierde al mezclar).
+      const publicadas = new Map(estado.placas.filter(p => p.facebook).map(p => [p.noticia + "|" + p.medio, p.facebook]));
       let conservadas = 0;
       estado.placas.forEach(p => p.url && URL.revokeObjectURL(p.url));
       if (estado.pendientes && !mezclar) {
@@ -234,6 +246,7 @@
         const n = estado.noticias[p.noticia];
         const pl = { noticia: p.noticia, medio: p.medio, titulo: p.titulo, fotoId: n.fotos[p.foto]?.id, texto: null };
         pl.orig = { titulo: pl.titulo, fotoId: pl.fotoId };
+        if (publicadas.has(p.noticia + "|" + p.medio)) pl.facebook = publicadas.get(p.noticia + "|" + p.medio);
         const v = aMano.get(p.noticia + "|" + p.medio);
         if (v && v.titulo < n.titulos.length && n.fotos.some(f => f.id === v.fotoId)) {
           Object.assign(pl, { titulo: v.titulo, fotoId: v.fotoId, texto: v.texto, ajuste: v.ajuste });
@@ -510,6 +523,7 @@
       });
       const zip = await P.armarZip(items);
       descargar(zip, `placas-${new Date().toLocaleDateString("sv-SE")}.zip`); // AAAA-MM-DD
+      if (estado.soloLectura && estado.guardado !== claveTanda()) aviso("ZIP descargado. Tus cambios no se guardaron en la tanda de otra persona: arriba elegí Corregir o Guardar como tanda mía.", true);
       guardarHistorial();
     } catch (e) { aviso(e.message, true); }
     pintarPie();
@@ -527,6 +541,7 @@
   function autoguardar() {
     if (!window.sb || estado.armando || estado.guardando || !estado.placas.length || estado.paso !== 3) return;
     if (estado.guardado === claveTanda()) return;
+    if (estado.soloLectura) return pintarTanda(); // tanda de otro: solo avisa que hay cambios sin guardar
     guardarHistorial({ silencioso: true });
   }
   function pintarGuardado(t, mal) {
@@ -535,6 +550,7 @@
   }
   function guardarHistorial(op = {}) {
     if (!window.sb || estado.guardado === claveTanda()) return; // no repetir si no cambió nada
+    if (estado.soloLectura) { pintarTanda(); return; } // tanda de otro: hay que elegir Corregir o Guardar como mía
     if (estado.guardando) return estado.guardando.then(() => guardarHistorial(op));
     estado.guardando = (async () => {
       const clave = claveTanda();
@@ -555,13 +571,23 @@
           })),
         };
         const punteo = $("#g-punteo").value;
-        let error;
-        if (estado.historialId) ({ error } = await window.sb.from("historial").update({ punteo, resultado }).eq("id", estado.historialId));
-        else {
+        let error, conflicto = false;
+        if (estado.historialId) {
+          // Solo se actualiza si nadie la guardó desde que la abrimos (si no, se pisarían cambios ajenos).
+          let q = window.sb.from("historial").update({ punteo, resultado }).eq("id", estado.historialId);
+          q = estado.versionTanda ? q.eq("editado_en", estado.versionTanda) : q.is("editado_en", null);
+          const r = await q.select("editado_en");
+          error = r.error;
+          if (!error && !r.data?.length) conflicto = true;
+          else if (!error) estado.versionTanda = r.data[0].editado_en;
+        }
+        if (!estado.historialId || conflicto) {
           const r = await window.sb.from("historial").insert({ punteo, resultado }).select("id").single();
-          error = r.error; if (!error) estado.historialId = r.data.id;
+          error = r.error;
+          if (!error) Object.assign(estado, { historialId: r.data.id, versionTanda: null, historialInfo: null });
         }
         if (error) throw error;
+        if (conflicto) { pintarTanda(); aviso("Otra persona cambió esta tanda mientras la tenías abierta: para no pisarla, tus cambios se guardaron como una tanda aparte.", true); }
         estado.guardado = clave; recordarTitulos(); estado.avisoError = false;
         const horaG = new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
         pintarGuardado(sinSubir ? `Guardado ${horaG}, pero ${plural(sinSubir, "foto no se subió", "fotos no se subieron")}.` : `✓ Guardado en el historial a las ${horaG}`, !!sinSubir);
@@ -597,13 +623,31 @@
     olvidarTanda();
   }
   function olvidarTanda() {
-    Object.assign(estado, { historialId: null, historialInfo: null, guardado: null, titulosTanda: null });
+    Object.assign(estado, { historialId: null, historialInfo: null, guardado: null, titulosTanda: null, soloLectura: false, versionTanda: null });
     pintarTanda();
   }
   function pintarTanda() {
     const i = estado.historialInfo;
     $("#g-tanda").hidden = !i;
-    if (i) $("#g-tanda-txt").textContent = `Corrigiendo la tanda del ${i.fecha}${i.autor ? ` (${i.autor})` : ""}. Al descargar se actualiza en el historial.`;
+    const ajena = !!(i && estado.soloLectura), cambios = ajena && estado.guardado && estado.guardado !== claveTanda();
+    $("#g-tanda").classList.toggle("g-tanda-ajena", ajena);
+    $("#g-corregir-tanda").hidden = $("#g-copia-tanda").hidden = !ajena;
+    if (i) $("#g-tanda-txt").textContent = ajena
+      ? `Tanda de otro día (${i.fecha}${i.autor ? ", " + i.autor : ""}): abierta solo para ver.` + (cambios ? " Tenés cambios SIN GUARDAR: elegí si corregís esa tanda o la guardás como una nueva." : " Para cambiarla, elegí una opción.")
+      : `Corrigiendo la tanda del ${i.fecha}${i.autor ? ` (${i.autor})` : ""}. Se guarda sola en el historial.`;
+  }
+  // Tanda de otro usuario: corregirla (con confirmación) o guardar una copia propia.
+  function corregirAjena(motivo) {
+    const i = estado.historialInfo;
+    if (!confirm(`${motivo ? motivo + "\n\n" : ""}Vas a modificar la tanda del ${i?.fecha || "otro día"}${i?.autor ? ` (de ${i.autor})` : ""}. Los cambios quedan en esa tanda, con tu nombre como corrector. ¿Seguir?`)) return false;
+    estado.soloLectura = false; pintarTanda();
+    if (estado.guardado !== claveTanda()) guardarHistorial();
+    return true;
+  }
+  function guardarComoMia() {
+    olvidarTanda(); // deja de apuntar a la tanda de otro: se guarda como nueva (con las marcas de Facebook)
+    estado.guardado = null;
+    guardarHistorial();
   }
   function irPaso(n) { // salto directo (sin apilar en el historial del navegador)
     estado.pila[estado.pila.length - 1] = n;
@@ -665,6 +709,9 @@
       estado.placas = placasGuardadas(r.placas || [], porIndice);
       estado.semilla = r.semilla || 0;
       estado.historialId = fila.id;
+      const dia = (d) => new Date(d).toLocaleDateString("sv-SE");
+      estado.soloLectura = dia(fila.creado_en) !== dia(Date.now()); // de otro día: solo para ver
+      estado.versionTanda = fila.editado_en || null;
       estado.historialInfo = { fecha: new Date(fila.creado_en).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }), autor: fila._autor || "" };
       estado.firma = firma();
       estado.guardado = claveTanda(); recordarTitulos();
@@ -690,5 +737,5 @@
     return true;
   }
 
-  window.Generar = { iniciar, estado, abrirTanda, guardarHistorial };
+  window.Generar = { iniciar, estado, abrirTanda, guardarHistorial, corregirAjena };
 })();

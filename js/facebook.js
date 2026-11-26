@@ -262,7 +262,24 @@
   const textoDe = (f) => variar ? (copies[f.pl.noticia]?.[f.variante ?? 0]?.texto ?? textos[f.pl.noticia]) : textos[f.pl.noticia];
 
   // ---------- Publicar ----------
+  // Antes de publicar se relee la tanda de la base: si otra persona ya publicó alguna de estas placas
+  // (por noticia y medio), se marca y se saca de la lista para no repetirla.
+  async function marcasFrescas() {
+    const g = G(); if (!g.historialId || !window.sb) return 0;
+    const { data, error } = await window.sb.from("historial").select("resultado").eq("id", g.historialId).maybeSingle();
+    if (error || !data) return 0;
+    const ya = new Map((data.resultado?.placas || []).filter(p => p?.facebook).map(p => [p.noticia + "|" + p.medio, p.facebook]));
+    let nuevas = 0;
+    filas.forEach(f => {
+      const m = ya.get(f.pl.noticia + "|" + f.pl.medio);
+      if (m && !f.pl.facebook) { f.pl.facebook = m; f.sel = false; f.estado = textoHecho(m); nuevas++; }
+    });
+    return nuevas;
+  }
   async function publicar() {
+    if (G().soloLectura && !window.Generar.corregirAjena("Para publicar, el Generador anota en la tanda qué placas salieron (así nadie las repite).")) return;
+    const otras = await marcasFrescas();
+    if (otras) { pintar(); return nota(`${plural(otras, "placa ya la publicó", "placas ya las publicó")} otra persona: las saqué de la lista. Revisá y volvé a tocar Programar.`, true); }
     const lista = filas.filter(f => f.sel && paginaDe(f.medio));
     if (!lista.length) return nota("No hay placas elegidas con página asignada.", true);
     if (!cuenta || Date.now() > cuenta.vence - 60e3) { cuenta = null; pintar(); return nota("Conectá Facebook (o volvé a conectar: el permiso venció).", true); }
@@ -304,6 +321,7 @@
         f.estado = !f.cuando ? "Publicada ✓" : "Programada ✓ " + hora(f.cuando);
         f.pl.facebook = { estado: !f.cuando ? "publicada" : "programada", cuando: (f.cuando || new Date()).toISOString(), pagina: pag.name };
         f.sel = false; ok++;
+        window.Generar.guardarHistorial?.({ silencioso: true }); // queda anotada enseguida en la tanda
       } catch (e) {
         f.mal = true; f.estado = "Error: " + e.message;
         if (e.codigo === 190) { cuenta = null; f.estado = "Error: el permiso de Facebook venció. Volvé a conectar."; pintarEstado(f); break; }

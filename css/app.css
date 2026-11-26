@@ -347,3 +347,5 @@ dialog.hoja[open] { display: flex; flex-direction: column; }
 .fb-dato select[data-var] { max-width: 120px; min-height: 34px; }
 .g-autoguardado { font-size: .85rem; color: var(--ok); margin: .2rem 0; min-height: 1.1em; font-weight: 600; }
 .g-autoguardado.mal { color: var(--peligro); }
+.g-tanda-acc { display: flex; flex-wrap: wrap; gap: .4rem; }
+.g-tanda-ajena { background: #fff4e5; border-color: #f2c48d; }

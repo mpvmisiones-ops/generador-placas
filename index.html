@@ -9,7 +9,7 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=26">
+  <link rel="stylesheet" href="css/app.css?v=27">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
@@ -74,7 +74,11 @@
         <!-- Pantalla del productor (Etapa 3): un paso por vez, pensada primero para el celular -->
         <div class="g-tanda" id="g-tanda" hidden>
           <span id="g-tanda-txt"></span>
-          <button type="button" class="btn btn-chico btn-borde" id="g-nueva">Empezar una nueva</button>
+          <div class="g-tanda-acc">
+            <button type="button" class="btn btn-chico btn-principal" id="g-corregir-tanda" hidden>Corregir esta tanda</button>
+            <button type="button" class="btn btn-chico btn-borde" id="g-copia-tanda" hidden>Guardar como tanda nueva</button>
+            <button type="button" class="btn btn-chico btn-borde" id="g-nueva">Empezar una nueva</button>
+          </div>
         </div>
         <nav class="g-pasos" id="g-pasos" aria-label="Pasos">
           <button type="button" data-ir="1"><span>1</span> Punteo</button>
@@ -313,12 +317,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js" integrity="sha384-EyR2P0dlmjnEGcm9xcjdAn0VedZpRHEwDLP9oSS6wYMvzHBHkUrvgonveazJ/sSx" crossorigin="anonymous"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
-  <script src="js/config.js?v=26"></script>
-  <script src="js/placas.js?v=26"></script>
-  <script src="js/generar.js?v=26"></script>
-  <script src="js/historial.js?v=26"></script>
-  <script src="js/facebook.js?v=26"></script>
-  <script src="js/plantillas.js?v=26"></script>
-  <script src="js/app.js?v=26"></script>
+  <script src="js/config.js?v=27"></script>
+  <script src="js/placas.js?v=27"></script>
+  <script src="js/generar.js?v=27"></script>
+  <script src="js/historial.js?v=27"></script>
+  <script src="js/facebook.js?v=27"></script>
+  <script src="js/plantillas.js?v=27"></script>
+  <script src="js/app.js?v=27"></script>
 </body>
 </html>
