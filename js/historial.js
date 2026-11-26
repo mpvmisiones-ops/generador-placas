@@ -28,10 +28,11 @@
 
   async function cargar(mas) {
     const desde = mas ? filas.length : 0;
-    const { data, error } = await window.sb.from("historial")
-      .select("id, creado_en, punteo, resultado, usuario_id, editado_por, editado_en")
-      .order("creado_en", { ascending: false })
-      .range(desde, desde + POR_PAGINA - 1);
+    const consulta = (campos) => window.sb.from("historial").select(campos)
+      .order("creado_en", { ascending: false }).range(desde, desde + POR_PAGINA - 1);
+    let { data, error } = await consulta("id, creado_en, punteo, resultado, usuario_id, editado_por, editado_en");
+    // Si la base todavía no tiene las columnas de "quién corrigió" (seguridad.sql sin correr), sigue igual.
+    if (error && /editado_/.test(error.message)) ({ data, error } = await consulta("id, creado_en, punteo, resultado, usuario_id"));
     if (error) { $("#h-lista").innerHTML = `<p class="error">No se pudo cargar el historial: ${esc(error.message)}</p>`; return; }
     filas = mas ? filas.concat(data) : data;
     pintar();
