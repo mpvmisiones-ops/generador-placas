@@ -38,6 +38,7 @@
       dlg.addEventListener("click", alClic);
       dlg.addEventListener("change", alCambiar);
       dlg.addEventListener("input", alEscribir);
+      $("#fb-medios-det").querySelector("summary").addEventListener("click", () => { $("#fb-medios-det").dataset.tocado = "1"; });
       // Al pegar un bloque de copys, se separa solo.
       dlg.addEventListener("paste", (e) => {
         const t = e.target.closest?.("[data-pegar]"); if (!t) return;
@@ -436,7 +437,7 @@
       await new Promise(r => setTimeout(r, 600)); // sin apurar a Facebook
     }
     } catch (e) { nota("Se cortó la publicación: " + e.message, true); }
-    finally { publicando = false; }
+    finally { publicando = false; window.Generar.pintarResumen3?.(); }
     // Queda anotado en el historial (si la tanda no estaba guardada, se guarda ahora con sus fotos).
     if (ok) { try { await window.Generar.guardarHistorial?.(); } catch (e) { console.warn("[facebook] historial:", e.message); } }
     const fallas = lista.filter(f => f.mal).length;
@@ -463,6 +464,10 @@
       return `<div class="fb-medio"><strong>${esc(m.nombre)}</strong>${opciones}</div>`;
     }).join("");
 
+    // 2) Páginas de cada medio: cuando ya están todas asignadas, se pliegan (se elige una sola vez).
+    const asignadasN = medios.filter(m => asignadas.get(m.id)).length, det = $("#fb-medios-det");
+    $("#fb-medios-resumen").textContent = `${asignadasN} de ${medios.length} medios con página`;
+    if (!det.dataset.tocado) det.open = asignadasN < medios.filter(m => !m.es_neutra).length;
     document.querySelectorAll("#fb-modo [data-modo]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.modo === modo)));
     $("#fb-auto").hidden = modo === "elegir";
     $("#fb-desde-l").hidden = modo !== "auto";

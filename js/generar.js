@@ -38,6 +38,26 @@
     $("#g-copia-tanda").addEventListener("click", guardarComoMia);
     $("#g-ver-historial").addEventListener("click", () => window.irA?.("historial"));
     $("#g-fotos").addEventListener("change", fotosElegidas);
+    // Arrastrar fotos desde la carpeta y soltarlas sobre una noticia.
+    const zona = (e) => e.target.closest?.("#g-fotos [data-n]");
+    $("#g-fotos").addEventListener("dragover", (e) => {
+      const z = zona(e); if (!z || ![...(e.dataTransfer?.types || [])].includes("Files")) return;
+      e.preventDefault(); e.dataTransfer.dropEffect = "copy";
+      document.querySelectorAll("#g-fotos .g-soltar").forEach(x => x !== z && x.classList.remove("g-soltar"));
+      z.classList.add("g-soltar");
+    });
+    $("#g-fotos").addEventListener("dragleave", (e) => { const z = zona(e); if (z && !z.contains(e.relatedTarget)) z.classList.remove("g-soltar"); });
+    $("#g-fotos").addEventListener("drop", async (e) => {
+      const z = zona(e); if (!z) return;
+      e.preventDefault(); z.classList.remove("g-soltar");
+      const archivos = [...(e.dataTransfer?.files || [])].filter(f => f.type.startsWith("image/"));
+      if (!archivos.length) return aviso("Eso no son fotos.", true);
+      await agregarFotos(estado.noticias[+z.dataset.n], archivos);
+      pintarFotos(); mostrar(estado.paso);
+    });
+    // Si se suelta una foto fuera de una noticia, que el navegador no la abra (se perdería lo armado).
+    window.addEventListener("dragover", (e) => { if (!zona(e)) e.preventDefault(); });
+    window.addEventListener("drop", (e) => { if (!zona(e)) e.preventDefault(); });
     $("#g-fotos").addEventListener("click", quitarFoto);
     $("#g-pasos").addEventListener("click", (e) => { const b = e.target.closest("[data-ir]"); if (b && !b.disabled) navegar(+b.dataset.ir); });
     $("#g-pie").addEventListener("click", accionPie);
@@ -85,6 +105,7 @@
     const cambia = n !== estado.paso;
     estado.paso = n;
     document.querySelectorAll(".g-paso").forEach(s => s.hidden = +s.dataset.paso !== n);
+    document.body.classList.toggle("g-lateral", n === 3); // en PC: placas a la izquierda, acciones a la derecha
     document.querySelectorAll("#g-pasos [data-ir]").forEach(b => {
       const k = +b.dataset.ir;
       b.disabled = !puedeIr(k);
@@ -97,6 +118,7 @@
   }
 
   function pintarPie() {
+    pintarResumen3();
     const pie = $("#g-pie"), n = estado.paso, dis = estado.armando ? " disabled" : "";
     if (n === 1) {
       const c = estado.noticias.length;
@@ -105,18 +127,33 @@
       const f = faltanFotos();
       pie.innerHTML = `${f.length ? `<p class="g-pie-nota">Falta cargar fotos en: noticia ${f.join(", ")}</p>` : ""}
         <div class="g-pie-fila">
-          <button class="btn btn-borde" data-acc="atras" aria-label="Volver al punteo">←</button>
+          <button class="btn btn-borde" data-acc="atras" aria-label="Volver al punteo">← Punteo</button>
           <button class="btn btn-grande btn-principal" data-acc="ir3"${f.length ? " disabled" : ""}>Armar placas</button>
         </div>`;
     } else {
-      pie.innerHTML = `<div class="g-pie-fila g-pie-3">
-          <button class="btn btn-borde" data-acc="atras" aria-label="Volver a las fotos"${dis}>←</button>
-          <button class="btn btn-borde" data-acc="mezclar"${dis}>Volver a mezclar</button>
-          <button class="btn btn-principal" data-acc="zip"${dis || (estado.placas.length ? "" : " disabled")}>Descargar ZIP</button>
+      pie.innerHTML = `<p class="g-pie-titulo solo-pc">Acciones</p>
+        <div class="g-pie-fila g-pie-3">
+          <button class="btn btn-borde" data-acc="atras" aria-label="Volver a las fotos"${dis}>← Fotos</button>
+          <button class="btn btn-borde" data-acc="mezclar" title="Reparte de nuevo títulos y fotos entre los medios (respeta lo cambiado a mano)"${dis}>🔀 Otra combinación</button>
+          <button class="btn btn-principal" data-acc="zip"${dis || (estado.placas.length ? "" : " disabled")}>📦 Descargar ZIP</button>
         </div>
         <button class="btn btn-borde g-pie-video" data-acc="video"${dis || (estado.placas.length ? "" : " disabled")}>🎬 Hacer videos de las placas</button>${window.Facebook?.puede() ? `
         <button class="btn btn-fb g-pie-fb" data-acc="fb"${dis || (estado.placas.length ? "" : " disabled")}>Publicar en Facebook</button>` : ""}`;
     }
+  }
+  // 5) Resumen arriba del paso 3: cuántas placas, publicadas, guardado y avisos.
+  function pintarResumen3() {
+    const el = $("#g-resumen3"); if (!el) return;
+    if (estado.paso !== 3 || !estado.placas.length) { el.innerHTML = ""; return; }
+    const pub = estado.placas.filter(p => p.facebook).length, malas = estado.placas.filter(p => p.entra === false).length;
+    const chip = (t, cls = "") => `<span class="g-chip ${cls}">${t}</span>`;
+    el.innerHTML = [
+      chip(plural(estado.placas.length, "placa", "placas")),
+      chip(plural(estado.noticias.length, "noticia", "noticias")),
+      pub ? chip(`${pub} en Facebook`, "g-chip-fb") : "",
+      estado.horaGuardado ? chip(`✓ Guardado ${estado.horaGuardado}`, "g-chip-ok") : chip("Sin guardar todavía", "g-chip-suave"),
+      malas ? chip(`⚠ ${plural(malas, "título no entra", "títulos no entran")}`, "g-chip-mal") : "",
+    ].join("");
   }
   function accionPie(e) {
     const b = e.target.closest("[data-acc]"); if (!b || b.disabled) return;
@@ -318,6 +355,7 @@
   }
 
   function pintarProblemas() {
+    pintarResumen3();
     const malas = estado.placas.filter(p => p.entra === false).length;
     $("#g-problemas").hidden = !malas;
     $("#g-problemas-txt").textContent = `${plural(malas, "placa tiene", "placas tienen")} el título demasiado largo.`;
@@ -329,6 +367,12 @@
     $("#e-listo").addEventListener("click", () => dlg.close());
     $("#e-ant").addEventListener("click", () => moverEditor(-1));
     $("#e-sig").addEventListener("click", () => moverEditor(1));
+    dlg.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); dlg.close(); return; }
+      if (e.target.closest("input, textarea, select, [contenteditable]")) return; // escribiendo: las flechas mueven el cursor
+      if (e.key === "ArrowLeft") { e.preventDefault(); moverEditor(-1); }
+      else if (e.key === "ArrowRight") { e.preventDefault(); moverEditor(1); }
+    });
     dlg.addEventListener("click", (e) => { if (e.target === dlg) dlg.close(); }); // tocar afuera (escritorio)
     dlg.addEventListener("close", () => {
       const i = estado.editando; estado.editando = -1;
@@ -592,6 +636,7 @@
         if (conflicto) { pintarTanda(); aviso("Otra persona cambió esta tanda mientras la tenías abierta: para no pisarla, tus cambios se guardaron como una tanda aparte.", true); }
         estado.guardado = clave; recordarTitulos(); estado.avisoError = false;
         const horaG = new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+        estado.horaGuardado = horaG; pintarResumen3();
         pintarGuardado(sinSubir ? `Guardado ${horaG}, pero ${plural(sinSubir, "foto no se subió", "fotos no se subieron")}.` : `✓ Guardado en el historial a las ${horaG}`, !!sinSubir);
         if (!op.silencioso || sinSubir) aviso(sinSubir ? `Guardado en el historial, pero ${plural(sinSubir, "foto no se pudo subir", "fotos no se pudieron subir")}.` : "Guardado en el historial.", !!sinSubir);
       } catch (e) {
@@ -739,5 +784,5 @@
     return true;
   }
 
-  window.Generar = { iniciar, estado, abrirTanda, guardarHistorial, corregirAjena };
+  window.Generar = { iniciar, estado, abrirTanda, guardarHistorial, corregirAjena, pintarResumen3 };
 })();

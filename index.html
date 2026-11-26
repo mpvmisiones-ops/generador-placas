@@ -9,7 +9,7 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=34">
+  <link rel="stylesheet" href="css/app.css?v=35">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
@@ -91,9 +91,9 @@
           </div>
         </div>
         <nav class="g-pasos" id="g-pasos" aria-label="Pasos">
-          <button type="button" data-ir="1"><span>1</span> Punteo</button>
-          <button type="button" data-ir="2"><span>2</span> Fotos</button>
-          <button type="button" data-ir="3"><span>3</span> Revisar</button>
+          <button type="button" data-ir="1"><span>1</span> Pegar punteo</button>
+          <button type="button" data-ir="2"><span>2</span> Cargar fotos</button>
+          <button type="button" data-ir="3"><span>3</span> Revisar y publicar</button>
         </nav>
 
         <div class="g-paso" data-paso="1">
@@ -113,7 +113,7 @@
         <div class="g-paso" data-paso="2" hidden>
           <div class="tarjeta">
             <h2>Fotos de cada noticia</h2>
-            <p class="suave">Podés cargar varias fotos por noticia: se reparten entre los medios.</p>
+            <p class="suave">Podés cargar varias fotos por noticia: se reparten entre los medios. <span class="solo-pc">También podés <strong>arrastrar las fotos</strong> desde la carpeta y soltarlas sobre la noticia.</span></p>
             <div id="g-fotos"></div>
           </div>
         </div>
@@ -121,7 +121,8 @@
         <div class="g-paso" data-paso="3" hidden>
           <div class="tarjeta">
             <h2>Revisá las placas</h2>
-            <p class="suave">Tocá una placa para cambiarle el título o la foto.</p>
+            <div class="g-resumen3" id="g-resumen3"></div>
+            <p class="suave">Hacé clic en una placa para cambiarle el título, la foto o el texto.</p>
             <p class="suave" id="g-progreso" role="status"></p>
             <p class="g-autoguardado" id="g-autoguardado" role="status"></p>
             <div class="g-problemas" id="g-problemas" hidden>
@@ -203,7 +204,7 @@
   <dialog id="dlg-placa" class="hoja" aria-labelledby="e-medio">
     <div class="hoja-cab">
       <button type="button" class="btn btn-chico btn-borde" id="e-ant" aria-label="Placa anterior">‹</button>
-      <div class="hoja-titulo"><strong id="e-medio"></strong><span class="suave" id="e-noticia"></span></div>
+      <div class="hoja-titulo"><strong id="e-medio"></strong><span class="suave" id="e-noticia"></span><span class="suave e-atajos solo-pc">← → cambiar de placa · Ctrl+Enter listo · Esc cerrar</span></div>
       <button type="button" class="btn btn-chico btn-borde" id="e-sig" aria-label="Placa siguiente">›</button>
       <button type="button" class="btn btn-chico btn-principal" id="e-listo">Listo</button>
     </div>
@@ -279,11 +280,14 @@
     </div>
     <div class="hoja-cuerpo">
       <div class="fb-contenido">
+       <div class="fb-col-izq">
         <h3>1. Tu cuenta de Facebook</h3>
         <div id="fb-cuenta"></div>
-        <h3>2. Página de cada medio</h3>
-        <p class="suave">Se elige una sola vez y queda guardado para todos.</p>
-        <div id="fb-medios" class="fb-medios"></div>
+        <details class="fb-medios-det" id="fb-medios-det" open>
+          <summary><h3>2. Página de cada medio</h3> <span class="suave" id="fb-medios-resumen"></span></summary>
+          <p class="suave">Se elige una sola vez y queda guardado para todos.</p>
+          <div id="fb-medios" class="fb-medios"></div>
+        </details>
         <h3>3. Qué publicar</h3>
         <div class="e-segm" id="fb-tipo">
           <button type="button" data-tipo="foto">Placa fija</button><button type="button" data-tipo="reel">Reel (video vertical)</button><button type="button" data-tipo="video">Video en el feed</button>
@@ -308,6 +312,8 @@
           <label>Variación al azar (min) <input type="number" id="fb-vari" min="0" max="30" value="6"></label>
           <button type="button" class="btn btn-chico btn-borde" data-fb="repartir">🔀 Volver a repartir</button>
         </div>
+       </div>
+       <div class="fb-col-der">
         <h3>5. Placas y texto</h3>
         <label class="fb-copy-op"><input type="checkbox" id="fb-variar"> Opciones de copy <span class="suave">(un texto distinto por página)</span></label>
         <div class="fb-copy-cfg" id="fb-copy-cfg" hidden>
@@ -319,6 +325,7 @@
         <div id="fb-lista"></div>
         <p class="e-nota" id="fb-nota" role="status"></p>
         <button type="button" class="btn btn-grande btn-principal" id="fb-publicar" data-fb="publicar">Publicar</button>
+       </div>
       </div>
     </div>
   </dialog>
@@ -371,13 +378,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js" integrity="sha384-EyR2P0dlmjnEGcm9xcjdAn0VedZpRHEwDLP9oSS6wYMvzHBHkUrvgonveazJ/sSx" crossorigin="anonymous"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
-  <script src="js/config.js?v=34"></script>
-  <script src="js/placas.js?v=34"></script>
-  <script src="js/generar.js?v=34"></script>
-  <script src="js/historial.js?v=34"></script>
-  <script src="js/facebook.js?v=34"></script>
-  <script src="js/video.js?v=34"></script>
-  <script src="js/plantillas.js?v=34"></script>
-  <script src="js/app.js?v=34"></script>
+  <script src="js/config.js?v=35"></script>
+  <script src="js/placas.js?v=35"></script>
+  <script src="js/generar.js?v=35"></script>
+  <script src="js/historial.js?v=35"></script>
+  <script src="js/facebook.js?v=35"></script>
+  <script src="js/video.js?v=35"></script>
+  <script src="js/plantillas.js?v=35"></script>
+  <script src="js/app.js?v=35"></script>
 </body>
 </html>

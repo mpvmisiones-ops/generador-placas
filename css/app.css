@@ -207,8 +207,8 @@ h3 { font-size: 1.05rem; margin: 1.1rem 0 .6rem; }
   margin: 0 -16px; padding: 14px 16px max(14px, env(safe-area-inset-bottom));
   background: linear-gradient(rgba(243,241,236,0), var(--fondo) 22%);
 }
-.g-pie-fila { display: grid; grid-template-columns: 58px 1fr; gap: .5rem; }
-.g-pie-3 { grid-template-columns: 52px 1fr 1.25fr; }
+.g-pie-fila { display: grid; grid-template-columns: auto 1fr; gap: .5rem; }
+.g-pie-3 { grid-template-columns: auto 1fr 1.25fr; }
 .g-pie-3 .btn { font-size: .98rem; line-height: 1.15; }
 .g-pie .btn { min-height: 56px; padding-left: .6rem; padding-right: .6rem; }
 .g-pie .btn-borde { background: var(--tarjeta); }
@@ -376,3 +376,51 @@ dialog.hoja[open] { display: flex; flex-direction: column; }
 .fb-video-op { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .5rem; margin-top: .5rem; }
 .fb-video-op label { margin: 0; font-size: .88rem; }
 .fb-video-op select { width: 100%; min-height: 40px; }
+
+/* ===== Mejoras para PC ===== */
+.solo-pc { display: none; }
+@media (min-width: 1000px) { .solo-pc { display: inline; } p.solo-pc { display: block; } }
+/* 6) pasos terminados con ✓ */
+.g-pasos button.hecho:not([aria-current]) span { font-size: 0; width: 1.4rem; height: 1.4rem; }
+.g-pasos button.hecho:not([aria-current]) span::after { content: "✓"; font-size: .8rem; font-weight: 800; }
+/* 7) soltar fotos */
+.g-fn.g-soltar { outline: 3px dashed var(--acento); outline-offset: 4px; background: #fff4ee; border-radius: 10px; }
+/* 5) resumen del paso 3 */
+.g-resumen3 { display: flex; flex-wrap: wrap; gap: .4rem; margin: -.2rem 0 .6rem; }
+.g-chip { display: inline-flex; align-items: center; padding: .25rem .65rem; border-radius: 999px; background: #ebe7df; font-size: .85rem; font-weight: 700; }
+.g-chip-fb { background: #e7efff; color: #1b4fbf; }
+.g-chip-ok { background: #e3f4e8; color: var(--ok); }
+.g-chip-mal { background: #fde3e3; color: var(--peligro); }
+.g-chip-suave { background: transparent; border: 1px dashed #cfc8bb; color: var(--suave); font-weight: 600; }
+.e-atajos { font-size: .72rem !important; }
+.g-pie-titulo { margin: 0 0 .2rem; font-weight: 800; font-size: .95rem; }
+
+@media (min-width: 1100px) {
+  /* 1) paso 3: placas a la izquierda, acciones fijas a la derecha */
+  body.g-lateral main { max-width: 1360px; }
+  body.g-lateral .seccion[data-seccion="generar"] { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 0 20px; align-items: start; }
+  body.g-lateral .seccion[data-seccion="generar"] > .g-tanda { grid-column: 1 / -1; grid-row: 1; }
+  body.g-lateral .seccion[data-seccion="generar"] > .g-pasos { grid-column: 1 / -1; grid-row: 2; }
+  body.g-lateral .seccion[data-seccion="generar"] > .g-paso { grid-column: 1; grid-row: 3; }
+  body.g-lateral #g-pie {
+    grid-column: 2; grid-row: 3; position: sticky; top: 84px; bottom: auto; margin: 0;
+    padding: 16px; background: var(--tarjeta); border-radius: var(--radio); box-shadow: var(--sombra); gap: .55rem;
+  }
+  body.g-lateral #g-pie .g-pie-3 { grid-template-columns: 1fr; }
+  body.g-lateral #g-pie .btn { min-height: 48px; width: 100%; }
+  body.g-lateral #g-pie [data-acc="zip"] { order: -1; }
+  /* 3) más placas por fila */
+  body.g-lateral .g-placas { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 14px; }
+  /* 2) ventana de publicar en dos columnas */
+  dialog.hoja-fb { width: min(1280px, calc(100vw - 48px)); height: min(900px, calc(100dvh - 32px)); }
+  .hoja-fb .hoja-cuerpo { overflow: hidden; }
+  .fb-contenido { max-width: none; display: grid; grid-template-columns: minmax(0, 420px) minmax(0, 1fr); gap: 28px; height: 100%; overflow: hidden; padding-top: 8px; }
+  .fb-col-izq, .fb-col-der { overflow: auto; padding-right: 6px; padding-bottom: 24px; }
+  .fb-col-der > #fb-nota { position: sticky; bottom: 64px; background: var(--fondo); margin: 0; padding: .3rem 0; }
+  .fb-col-der > #fb-publicar { position: sticky; bottom: 0; box-shadow: 0 -8px 16px -6px rgba(0,0,0,.18); }
+}
+.fb-medios-det > summary { list-style: none; cursor: pointer; display: flex; align-items: baseline; gap: .6rem; flex-wrap: wrap; }
+.fb-medios-det > summary::-webkit-details-marker { display: none; }
+.fb-medios-det > summary h3 { margin: 1.1rem 0 .4rem; }
+.fb-medios-det > summary::after { content: "▾ cambiar"; font-size: .8rem; color: var(--acento-osc); font-weight: 700; }
+.fb-medios-det[open] > summary::after { content: "▴ ocultar"; }
