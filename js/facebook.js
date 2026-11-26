@@ -4,7 +4,7 @@
 // no se guarda en la base ni en el navegador. En la base solo queda qué página corresponde a cada medio.
 (() => {
   const VERSION = "v26.0", GRAPH = `https://graph.facebook.com/${VERSION}`;
-  const PERMISOS = "pages_show_list,pages_manage_posts,pages_read_engagement";
+  const PERMISOS = "pages_show_list,pages_manage_posts,pages_read_engagement"; // business_management: opcional (portfolios)
   const MIN_PROG = 11 * 60e3, MAX_PROG = 29 * 864e5; // Facebook: entre 10 minutos y 30 días
   const $ = (s, el = document) => el.querySelector(s);
   const esc = (t) => String(t ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -63,7 +63,8 @@
     u.searchParams.set("redirect_uri", vuelta);
     u.searchParams.set("response_type", "token");
     u.searchParams.set("state", estadoOAuth);
-    if (c.META_CONFIG_ID) u.searchParams.set("config_id", c.META_CONFIG_ID); else u.searchParams.set("scope", PERMISOS);
+    if (c.META_CONFIG_ID) u.searchParams.set("config_id", c.META_CONFIG_ID); else u.searchParams.set("scope", PERMISOS + ",business_management");
+    u.searchParams.set("auth_type", "rerequest"); // vuelve a preguntar lo que no se dio (páginas, portfolios)
     const canal = new BroadcastChannel("placas-fb");
     const ventana = window.open(u.href, "placas-fb", "width=620,height=720");
     if (!ventana) { canal.close(); return nota("El navegador bloqueó la ventana de Facebook. Permití las ventanas emergentes para este sitio.", true); }
@@ -94,22 +95,56 @@
     return j;
   }
 
+  // Páginas donde puede publicar: las personales (/me/accounts) y las de cada portfolio comercial
+  // (propias y de clientes). Si una página llega sin permiso de publicación, se pide aparte.
+  async function listar(ruta, token) {
+    const todo = [];
+    while (ruta) {
+      const r = await graph(ruta, token);
+      todo.push(...(r.data || []));
+      ruta = r.paging?.next ? r.paging.next.replace(/^https:\/\/graph\.facebook\.com\/v[\d.]+/, "").replace(/&?access_token=[^&]*/, "") : null;
+    }
+    return todo;
+  }
   async function cargarPaginas() {
-    nota("Leyendo tus páginas…");
+    nota("Leyendo tus páginas y portfolios…");
     try {
       const yo = await graph("/me?fields=name", cuenta.token);
       cuenta.nombre = yo.name || "";
       const permisos = await graph("/me/permissions", cuenta.token);
-      const faltan = PERMISOS.split(",").filter(p => !permisos.data?.some(x => x.permission === p && x.status === "granted"));
-      paginas = [];
-      let ruta = "/me/accounts?fields=id,name,access_token,tasks&limit=100";
-      while (ruta) {
-        const r = await graph(ruta, cuenta.token);
-        paginas.push(...(r.data || []).filter(p => p.access_token && (!p.tasks || p.tasks.includes("CREATE_CONTENT"))));
-        ruta = r.paging?.next ? r.paging.next.replace(GRAPH, "").replace(/&?access_token=[^&]*/, "") : null;
+      const dado = (p) => permisos.data?.some(x => x.permission === p && x.status === "granted");
+      const faltan = PERMISOS.split(",").filter(p => !dado(p));
+      const porId = new Map();
+      const sumar = (p, origen) => { if (p?.id && !porId.has(p.id)) porId.set(p.id, { id: p.id, name: p.name || p.id, access_token: p.access_token || null, tasks: p.tasks, origen }); };
+      (await listar("/me/accounts?fields=id,name,access_token,tasks&limit=100", cuenta.token)).forEach(p => sumar(p, "Tus páginas"));
+      cuenta.portfolios = [];
+      if (dado("business_management")) {
+        const negocios = await listar("/me/businesses?fields=id,name&limit=100", cuenta.token).catch(() => []);
+        for (const b of negocios) {
+          let n = 0;
+          for (const edge of ["owned_pages", "client_pages"]) {
+            try {
+              const ps = await listar(`/${b.id}/${edge}?fields=id,name,access_token&limit=100`, cuenta.token);
+              ps.forEach(p => { if (!porId.has(p.id)) n++; sumar(p, b.name); });
+            } catch (e) { console.warn("[facebook]", b.name, edge, e.message); }
+          }
+          cuenta.portfolios.push({ nombre: b.name, paginas: n });
+        }
       }
-      paginas.sort((a, b) => a.name.localeCompare(b.name, "es"));
-      nota(faltan.length ? `Facebook no dio estos permisos: ${faltan.join(", ")}. Volvé a conectar y aceptá todo.` : `Listo: ${plural(paginas.length, "página", "páginas")} donde podés publicar.`, !!faltan.length || !paginas.length);
+      // Las que llegaron sin permiso de página: se pide directo (funciona si tiene una tarea asignada en ella).
+      for (const p of porId.values()) {
+        if (p.access_token) continue;
+        try { p.access_token = (await graph(`/${p.id}?fields=access_token`, cuenta.token)).access_token || null; } catch {}
+      }
+      const todas = [...porId.values()];
+      paginas = todas.filter(p => p.access_token && (!p.tasks || p.tasks.includes("CREATE_CONTENT")));
+      cuenta.sinPermiso = todas.length - paginas.length;
+      paginas.sort((a, b) => a.origen.localeCompare(b.origen, "es") || a.name.localeCompare(b.name, "es"));
+      const avisos = [];
+      if (faltan.length) avisos.push(`Facebook no dio estos permisos: ${faltan.join(", ")}. Tocá "Volver a conectar" y aceptá todo.`);
+      if (!dado("business_management")) avisos.push('No diste acceso a tus portfolios comerciales: si tus páginas están en un portfolio, tocá "Volver a conectar" y elegilos.');
+      if (cuenta.sinPermiso) avisos.push(`${plural(cuenta.sinPermiso, "página no deja", "páginas no dejan")} publicar con tu usuario (pedí que te den permiso de contenido).`);
+      nota(avisos.length ? avisos.join(" ") : `Listo: ${plural(paginas.length, "página", "páginas")} donde podés publicar.`, !!avisos.length || !paginas.length);
     } catch (e) { cuenta = null; nota("No se pudieron leer tus páginas: " + e.message, true); }
     pintar();
   }
@@ -208,13 +243,15 @@
     const medios = [...new Set(g.placas.map(p => p.medio))].map(id => g.medios.find(m => m.id === id)).filter(Boolean);
     $("#fb-cuenta").innerHTML = !c.META_APP_ID
       ? '<p class="error">Falta configurar la app de Meta. El administrador tiene que seguir la guía (docs/guia-facebook.md).</p>'
-      : cuenta ? `<p>Conectado como <strong>${esc(cuenta.nombre || "tu cuenta")}</strong> · ${plural(paginas.length, "página", "páginas")} <button type="button" class="btn btn-chico btn-borde" data-fb="conectar">Volver a conectar</button></p>`
+      : cuenta ? `<p>Conectado como <strong>${esc(cuenta.nombre || "tu cuenta")}</strong> · ${plural(paginas.length, "página", "páginas")} <button type="button" class="btn btn-chico btn-borde" data-fb="conectar">Volver a conectar</button></p>` +
+        (cuenta.portfolios?.length ? `<p class="suave fb-portfolios">Portfolios: ${cuenta.portfolios.map(b => `${esc(b.nombre)} (${b.paginas})`).join(" · ")}</p>` : "") +
+        '<p class="suave fb-portfolios">¿Falta alguna página? Tocá "Volver a conectar" y, en la ventana de Facebook, elegí "Editar acceso" y marcá todos los portfolios y páginas.</p>'
       : '<button type="button" class="btn btn-fb" data-fb="conectar">Conectar con Facebook</button><p class="suave">Se abre una ventana de Facebook. Nada de tu cuenta se guarda acá: al cerrar la página hay que volver a conectar.</p>';
 
     $("#fb-medios").innerHTML = medios.map(m => {
       const a = asignadas.get(m.id);
       const opciones = cuenta
-        ? `<select data-medio="${esc(m.id)}"${publicando ? " disabled" : ""}><option value="">— No publicar —</option>${paginas.map(p => `<option value="${esc(p.id)}"${a?.pagina_id === p.id ? " selected" : ""}>${esc(p.name)}</option>`).join("")}${a && !paginas.some(p => p.id === a.pagina_id) ? `<option value="${esc(a.pagina_id)}" selected>${esc(a.pagina_nombre)} (no la administrás)</option>` : ""}</select>`
+        ? `<select data-medio="${esc(m.id)}"${publicando ? " disabled" : ""}><option value="">— No publicar —</option>${[...new Set(paginas.map(p => p.origen))].map(o => `<optgroup label="${esc(o)}">${paginas.filter(p => p.origen === o).map(p => `<option value="${esc(p.id)}"${a?.pagina_id === p.id ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</optgroup>`).join("")}${a && !paginas.some(p => p.id === a.pagina_id) ? `<option value="${esc(a.pagina_id)}" selected>${esc(a.pagina_nombre)} (no la administrás)</option>` : ""}</select>`
         : `<span class="${a ? "" : "suave"}">${a ? esc(a.pagina_nombre) : "Sin página"}</span>`;
       return `<div class="fb-medio"><strong>${esc(m.nombre)}</strong>${opciones}</div>`;
     }).join("");
