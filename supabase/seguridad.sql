@@ -108,7 +108,8 @@ do $$ begin
     execute 'revoke execute on function public.rls_auto_enable() from public, anon, authenticated';
   end if;
 end $$;
--- hay_usuarios() sigue abierta: la pantalla de inicio la necesita y solo responde sí/no.
+-- hay_usuarios(): la usaba la pantalla de primera configuración (ya hecha y deshabilitada): cerrada.
+revoke execute on function public.hay_usuarios() from public, anon, authenticated;
 
 -- ===================== 5) Alta de usuarios =====================
 -- El perfil nace PAUSADO y solo para usuarios @placas.local. La función del servidor lo activa al crearlo.

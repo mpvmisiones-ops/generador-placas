@@ -39,8 +39,7 @@
   async function entrarConSesion() {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) {
-      const { data: hay } = await sb.rpc("hay_usuarios");
-      mostrar(hay === false ? "vista-inicio" : "vista-login");
+      mostrar("vista-login"); // la primera configuración ya se hizo (y está deshabilitada en el servidor)
       return;
     }
     const { data, error } = await sb.from("perfiles").select("*").eq("id", session.user.id).single();
