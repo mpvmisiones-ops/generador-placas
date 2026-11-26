@@ -225,54 +225,114 @@
     ctx.font = `${t.peso} ${tam}px "${familiaDe(m)}", sans-serif`;
     if (soportaEspaciado) ctx.letterSpacing = ((t.espaciado || 0) * tam).toFixed(2) + "px";
   }
-  function partirRenglones(ctx, texto, ancho) {
-    const palabras = texto.split(" "), renglones = [];
-    let linea = "";
-    for (const p of palabras) {
-      const prueba = linea ? linea + " " + p : p;
-      if (!linea || ctx.measureText(prueba).width <= ancho) linea = prueba;
-      else { renglones.push(linea); linea = p; }
+  // Palabras del título. Lo que va entre _guiones bajos_ se marca para pintarlo con el color de resaltado.
+  function palabrasDe(texto, mayus) {
+    texto = String(texto || "").replace(/\s+/g, " ").trim();
+    if (mayus) texto = texto.toLocaleUpperCase("es");
+    const marcar = (texto.match(/_/g) || []).length >= 2;
+    const palabras = [];
+    let resaltando = false;
+    for (const cruda of texto.split(" ")) {
+      let t = "", hl = false;
+      for (const ch of cruda) {
+        if (ch === "_" && marcar) { resaltando = !resaltando; continue; }
+        t += ch; if (resaltando && /[\p{L}\p{N}]/u.test(ch)) hl = true;
+      }
+      if (t) palabras.push({ t, hl });
     }
-    if (linea) renglones.push(linea);
+    return palabras;
+  }
+  const unir = (ps) => ps.map(p => p.t).join(" ");
+  function partirRenglones(ctx, palabras, ancho) {
+    const renglones = [];
+    let linea = [];
+    for (const p of palabras) {
+      if (!linea.length || ctx.measureText(unir([...linea, p])).width <= ancho) linea.push(p);
+      else { renglones.push(linea); linea = [p]; }
+    }
+    if (linea.length) renglones.push(linea);
     return renglones;
   }
   function medirTitulo(ctx, m, texto) {
     const t = m.config.titulo;
-    if (t.mayus) texto = texto.toLocaleUpperCase("es");
+    const palabras = palabrasDe(texto, t.mayus);
     const minimo = Math.max(16, Math.round(t.tam * 0.55));
     for (let tam = t.tam; tam >= minimo; tam--) {
       prepararLetra(ctx, m, tam);
-      const renglones = partirRenglones(ctx, texto, t.w);
+      const renglones = partirRenglones(ctx, palabras, t.w);
       const alto = renglones.length * tam * t.interlineado;
-      if (alto <= t.h && renglones.every(r => ctx.measureText(r).width <= t.w)) return { tam, renglones, entra: true };
+      if (alto <= t.h && renglones.every(r => ctx.measureText(unir(r)).width <= t.w)) return { tam, renglones, entra: true };
     }
     prepararLetra(ctx, m, minimo);
-    return { tam: minimo, renglones: partirRenglones(ctx, texto, t.w), entra: false };
+    return { tam: minimo, renglones: partirRenglones(ctx, palabras, t.w), entra: false };
   }
   function dibujarTitulo(ctx, m, texto) {
     const t = m.config.titulo;
     const med = medirTitulo(ctx, m, texto);
     prepararLetra(ctx, m, med.tam);
-    ctx.fillStyle = t.color; ctx.textBaseline = "alphabetic"; ctx.textAlign = t.alinear || "left";
+    ctx.textBaseline = "alphabetic"; ctx.textAlign = "left";
     const lh = med.tam * t.interlineado;
     const mt = ctx.measureText("ÁH");
     const asc = mt.fontBoundingBoxAscent ?? med.tam * 0.93, desc = mt.fontBoundingBoxDescent ?? med.tam * 0.24;
-    const x = t.alinear === "center" ? t.x + t.w / 2 : t.alinear === "right" ? t.x + t.w : t.x;
     const altoTotal = med.renglones.length * lh;
     const y0 = t.valinear === "bottom" ? t.y + t.h - altoTotal : t.valinear === "middle" ? t.y + (t.h - altoTotal) / 2 : t.y;
-    med.renglones.forEach((r, i) => ctx.fillText(r, x, y0 + i * lh + (lh - (asc + desc)) / 2 + asc));
+    const espacio = ctx.measureText(" ").width;
+    // Cada renglón se parte en tramos del mismo color (normal / resaltado).
+    const tramos = [];
+    med.renglones.forEach((r, i) => {
+      const ancho = ctx.measureText(unir(r)).width;
+      let x = t.alinear === "center" ? t.x + (t.w - ancho) / 2 : t.alinear === "right" ? t.x + t.w - ancho : t.x;
+      const y = y0 + i * lh + (lh - (asc + desc)) / 2 + asc;
+      let grupo = [];
+      const cerrar = () => { if (!grupo.length) return; const txt = unir(grupo); tramos.push({ txt, x, y, hl: grupo[0].hl }); x += ctx.measureText(txt).width + espacio; grupo = []; };
+      r.forEach(p => { if (grupo.length && grupo[0].hl !== p.hl) cerrar(); grupo.push(p); });
+      cerrar();
+    });
+    const contorno = +t.contorno || 0, sombra = +t.sombra || 0;
+    const colorDe = (tr) => tr.hl ? (t.resalte || "#ffd400") : t.color;
+    ctx.save();
+    ctx.lineJoin = "round"; ctx.miterLimit = 2;
+    if (sombra > 0) { // primera pasada: solo la sombra
+      ctx.shadowColor = `rgba(0,0,0,${(0.25 + 0.6 * sombra / 100).toFixed(2)})`;
+      ctx.shadowBlur = 4 + med.tam * 0.35 * sombra / 100;
+      ctx.shadowOffsetY = 2 + med.tam * 0.08 * sombra / 100;
+      tramos.forEach(tr => {
+        if (contorno > 0) { ctx.lineWidth = contorno * 2; ctx.strokeStyle = t.contornoColor || "#000"; ctx.strokeText(tr.txt, tr.x, tr.y); }
+        else { ctx.fillStyle = colorDe(tr); ctx.fillText(tr.txt, tr.x, tr.y); }
+      });
+      ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    }
+    if (contorno > 0) { ctx.lineWidth = contorno * 2; ctx.strokeStyle = t.contornoColor || "#000"; tramos.forEach(tr => ctx.strokeText(tr.txt, tr.x, tr.y)); }
+    tramos.forEach(tr => { ctx.fillStyle = colorDe(tr); ctx.fillText(tr.txt, tr.x, tr.y); });
+    ctx.restore();
     if (soportaEspaciado) ctx.letterSpacing = "0px";
     return med;
   }
 
-  // Ajuste de una placa: { escala %, ancho %, dx px, dy px } sobre la caja del título
-  // y opacidad % de la veladura de la capa (degradés y fondos semitransparentes).
-  const SIN_AJUSTE = { escala: 100, ancho: 100, dx: 0, dy: 0, opacidad: 100 };
-  const hayAjuste = (a) => !!a && (a.escala !== 100 || a.ancho !== 100 || a.dx !== 0 || a.dy !== 0 || (a.opacidad ?? 100) !== 100);
+  // Ajuste de una placa sobre el diseño del medio.
+  // Relativos: escala % (agranda letra y caja), ancho %, dx/dy px, opacidad % del fondo, interlineado %, espaciado (milésimas).
+  // Absolutos (null = el del medio): color, alinear, valinear, mayus, sombra 0–100, contorno px, contornoColor, resalte.
+  const RELATIVOS = { escala: 100, ancho: 100, dx: 0, dy: 0, opacidad: 100, interlineado: 100, espaciado: 0 };
+  const ABSOLUTOS = ["color", "alinear", "valinear", "mayus", "sombra", "contorno", "contornoColor", "resalte"];
+  const SIN_AJUSTE = { ...RELATIVOS, ...Object.fromEntries(ABSOLUTOS.map(k => [k, null])) };
+  const hayAjuste = (a) => !!a && (Object.keys(RELATIVOS).some(k => a[k] != null && a[k] !== RELATIVOS[k]) || ABSOLUTOS.some(k => a[k] != null));
   const opacidadDe = (m, a) => Math.round((m.config.capa?.opacidad ?? 100) * (a?.opacidad ?? 100) / 100);
   function cajaAjustada(t, a) {
     if (!hayAjuste(a)) return t;
-    return { ...t, x: Math.round(t.x + a.dx), y: Math.round(t.y + a.dy), w: Math.round(t.w * a.ancho / 100), tam: Math.round(t.tam * a.escala / 100) };
+    const escala = (a.escala ?? 100) / 100;
+    const h = Math.round(t.h * escala);
+    const valinear = a.valinear ?? t.valinear;
+    // La caja crece con la letra, desde el lado donde está anclado el texto.
+    const corrY = valinear === "bottom" ? t.h - h : valinear === "middle" ? (t.h - h) / 2 : 0;
+    const r = {
+      ...t,
+      x: Math.round(t.x + (a.dx ?? 0)), y: Math.round(t.y + (a.dy ?? 0) + corrY),
+      w: Math.round(t.w * (a.ancho ?? 100) / 100), h, tam: Math.max(8, Math.round(t.tam * escala)),
+      interlineado: +(t.interlineado * (a.interlineado ?? 100) / 100).toFixed(3),
+      espaciado: +((t.espaciado || 0) + (a.espaciado ?? 0) / 1000).toFixed(3),
+    };
+    ABSOLUTOS.forEach(k => { if (a[k] != null) r[k] = a[k]; });
+    return r;
   }
   function medioAjustado(m, a) {
     return hayAjuste(a) ? { ...m, config: { ...m.config, titulo: cajaAjustada(m.config.titulo, a) } } : m;
@@ -336,5 +396,5 @@
     return zip.generateAsync({ type: "blob", compression: "STORE" }); // los JPG ya vienen comprimidos
   }
 
-  window.Placas = { ANCHO, ALTO, MEDIOS_DEFECTO, SIN_AJUSTE, hayAjuste, cajaAjustada, opacidadDe, leerPunteo, repartir, cargarMedios, prepararMedios, leerFoto, componer, medirTitulo, aBlob, armarZip, nombreArchivo };
+  window.Placas = { ANCHO, ALTO, MEDIOS_DEFECTO, SIN_AJUSTE, RELATIVOS, ABSOLUTOS, hayAjuste, cajaAjustada, opacidadDe, leerPunteo, repartir, cargarMedios, prepararMedios, leerFoto, componer, medirTitulo, aBlob, armarZip, nombreArchivo };
 })();

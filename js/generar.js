@@ -339,11 +339,19 @@
     });
     $("#e-guardar").addEventListener("click", guardarUna);
     // Acomodar texto: tamaño, ancho y posición de la caja del título en esta placa.
+    const ajustar = (k, v) => {
+      const pl = estado.placas[estado.editando];
+      pl.ajuste = { ...(pl.ajuste || P.SIN_AJUSTE), [k]: v };
+      pl.sucia = true; pintarAjustes(); $("#e-original").hidden = esOriginal(pl); previa();
+    };
     $("#e-ajustes").addEventListener("input", (e) => {
       const r = e.target.closest("[data-a]"); if (!r) return;
-      const pl = estado.placas[estado.editando];
-      pl.ajuste = { ...(pl.ajuste || P.SIN_AJUSTE), [r.dataset.a]: +r.value };
-      pl.sucia = true; pintarAjustes(); $("#e-original").hidden = esOriginal(pl); previa();
+      ajustar(r.dataset.a, r.type === "color" ? r.value : +r.value);
+    });
+    $("#e-ajustes").addEventListener("click", (e) => { // alineación y mayúsculas
+      const b = e.target.closest(".e-segm [data-val]"); if (!b) return;
+      const v = b.dataset.val;
+      ajustar(b.parentElement.dataset.g, v === "true" ? true : v === "false" ? false : v);
     });
     $("#e-aj-cero").addEventListener("click", () => { estado.placas[estado.editando].ajuste = null; cambiado(); });
     $("#e-aj-todas").addEventListener("click", aplicarATodas);
@@ -352,11 +360,20 @@
 
   function nota(t, mal) { const p = $("#e-nota"); p.textContent = t; p.classList.toggle("mal", !!mal); }
   function pintarAjustes() {
-    const a = estado.placas[estado.editando].ajuste || P.SIN_AJUSTE;
-    document.querySelectorAll("#e-ajustes [data-a]").forEach(r => { r.value = a[r.dataset.a] ?? 100; });
+    const pl = estado.placas[estado.editando], a = { ...P.SIN_AJUSTE, ...(pl.ajuste || {}) };
+    const t = medioDe(pl).config.titulo;
+    // Lo absoluto que no se tocó muestra el valor del diseño del medio.
+    const DEF = { color: t.color, resalte: t.resalte || "#ffd400", contornoColor: t.contornoColor || "#000000", alinear: t.alinear || "left",
+                  valinear: t.valinear || "top", mayus: !!t.mayus, sombra: t.sombra || 0, contorno: t.contorno || 0 };
+    const val = (k) => a[k] ?? DEF[k];
+    document.querySelectorAll("#e-ajustes [data-a]").forEach(r => { r.value = val(r.dataset.a); });
+    document.querySelectorAll("#e-ajustes .e-segm").forEach(g => {
+      g.querySelectorAll("[data-val]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.val === String(val(g.dataset.g)))));
+    });
     document.querySelectorAll("#e-ajustes [data-v]").forEach(o => {
-      const k = o.dataset.v, v = a[k];
-      o.textContent = k === "dx" || k === "dy" ? (v > 0 ? "+" : "") + v : (v ?? 100) + " %";
+      const k = o.dataset.v, v = val(k);
+      o.textContent = k === "dx" || k === "dy" || k === "espaciado" ? (v > 0 ? "+" : "") + v
+        : k === "contorno" ? v + " px" : v + " %";
     });
   }
   // Copia el ajuste de esta placa a todas las placas del mismo medio.

@@ -9,7 +9,7 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=17">
+  <link rel="stylesheet" href="css/app.css?v=18">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
@@ -207,11 +207,39 @@
         <div class="g-miniaturas" id="e-fotos"></div>
         <h3>Acomodar texto y fondo</h3>
         <div class="e-ajustes" id="e-ajustes">
-          <label>Tamaño <output data-v="escala"></output><input type="range" data-a="escala" min="50" max="130" step="1"></label>
-          <label>Ancho de la caja <output data-v="ancho"></output><input type="range" data-a="ancho" min="50" max="120" step="1"></label>
-          <label>Mover ↔ <output data-v="dx"></output><input type="range" data-a="dx" min="-300" max="300" step="2"></label>
-          <label>Mover ↕ <output data-v="dy"></output><input type="range" data-a="dy" min="-500" max="300" step="2"></label>
+          <label>Tamaño <output data-v="escala"></output><input type="range" data-a="escala" min="30" max="300" step="1"></label>
+          <label>Ancho de la caja <output data-v="ancho"></output><input type="range" data-a="ancho" min="30" max="200" step="1"></label>
+          <label>Mover ↔ <output data-v="dx"></output><input type="range" data-a="dx" min="-600" max="600" step="2"></label>
+          <label>Mover ↕ <output data-v="dy"></output><input type="range" data-a="dy" min="-900" max="500" step="2"></label>
           <label>Opacidad del fondo <output data-v="opacidad"></output><input type="range" data-a="opacidad" min="0" max="150" step="5"></label>
+          <details class="e-mas">
+            <summary>Más opciones de texto</summary>
+            <div class="e-colores">
+              <label>Color <input type="color" data-a="color"></label>
+              <label>Resaltado <input type="color" data-a="resalte"></label>
+              <label>Contorno <input type="color" data-a="contornoColor"></label>
+            </div>
+            <p class="suave e-ayuda">Para resaltar palabras, escribilas entre _guiones bajos_ en "Texto de esta placa".</p>
+            <div class="e-grupo">Alineación
+              <div class="e-segm" data-g="alinear">
+                <button type="button" data-val="left">Izquierda</button><button type="button" data-val="center">Centro</button><button type="button" data-val="right">Derecha</button>
+              </div>
+            </div>
+            <div class="e-grupo">Dentro de la caja
+              <div class="e-segm" data-g="valinear">
+                <button type="button" data-val="top">Arriba</button><button type="button" data-val="middle">Medio</button><button type="button" data-val="bottom">Abajo</button>
+              </div>
+            </div>
+            <div class="e-grupo">Letras
+              <div class="e-segm" data-g="mayus">
+                <button type="button" data-val="true">MAYÚSCULAS</button><button type="button" data-val="false">Como está escrito</button>
+              </div>
+            </div>
+            <label>Interlineado <output data-v="interlineado"></output><input type="range" data-a="interlineado" min="60" max="200" step="1"></label>
+            <label>Espaciado entre letras <output data-v="espaciado"></output><input type="range" data-a="espaciado" min="-80" max="300" step="2"></label>
+            <label>Sombra <output data-v="sombra"></output><input type="range" data-a="sombra" min="0" max="100" step="1"></label>
+            <label>Grosor del contorno <output data-v="contorno"></output><input type="range" data-a="contorno" min="0" max="20" step="1"></label>
+          </details>
         </div>
         <div class="e-fila-ajuste">
           <button type="button" class="btn btn-chico btn-borde" id="e-aj-cero">Restablecer</button>
@@ -245,11 +273,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js" integrity="sha384-EyR2P0dlmjnEGcm9xcjdAn0VedZpRHEwDLP9oSS6wYMvzHBHkUrvgonveazJ/sSx" crossorigin="anonymous"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
-  <script src="js/config.js?v=17"></script>
-  <script src="js/placas.js?v=17"></script>
-  <script src="js/generar.js?v=17"></script>
-  <script src="js/historial.js?v=17"></script>
-  <script src="js/plantillas.js?v=17"></script>
-  <script src="js/app.js?v=17"></script>
+  <script src="js/config.js?v=18"></script>
+  <script src="js/placas.js?v=18"></script>
+  <script src="js/generar.js?v=18"></script>
+  <script src="js/historial.js?v=18"></script>
+  <script src="js/plantillas.js?v=18"></script>
+  <script src="js/app.js?v=18"></script>
 </body>
 </html>
