@@ -49,3 +49,10 @@ Desde el paso 3, el botón **Publicar en Facebook** (solo admins y usuarios con 
 - El token de Facebook queda solo en la memoria de la pestaña (inicio de sesión manual de Meta, vuelta por `fb.html`). La base no guarda tokens.
 - Base: `supabase/facebook.sql` (columna `perfiles.puede_publicar`, función `puede_publicar()` y tabla `facebook_paginas` medio → página).
 - Falta cargar `META_APP_ID` en `js/config.js` cuando esté creada la app de Meta.
+
+## Videos de las placas
+
+En el paso 3, **🎬 Hacer videos de las placas** anima cada placa (zoom lento de la foto, entrada de la capa del medio y del título renglón por renglón) y la guarda como MP4 en el navegador, sin servidores. Formatos **Reel 9:16** (1080×1920, la placa al centro sobre la foto desenfocada) y **Placa 4:5** (1080×1350); animación Suave, Dinámica o Solo zoom; 6, 8 o 10 segundos. Se descarga uno o todos en ZIP (mismos nombres que las imágenes, con `-reel`).
+
+- Motor: `Placas.prepararAnimacion` (js/placas.js). Codificación: `js/video.js` con WebCodecs (H.264) + `js/vendor/mp4-muxer.js` (MIT, se carga solo al usarlo). Sin WebCodecs, se graba en tiempo real con MediaRecorder.
+- Cada placa guarda su video en memoria (`pl.video`) para el paso siguiente: publicarlo en Facebook como Reel o video.

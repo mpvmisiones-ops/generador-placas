@@ -309,7 +309,7 @@
     tramos.forEach(tr => { ctx.fillStyle = colorDe(tr); ctx.fillText(tr.txt, tr.x, tr.y); });
     ctx.restore();
     if (soportaEspaciado) ctx.letterSpacing = "0px";
-    return med;
+    return { ...med, y0, lh, margen: Math.ceil(contorno + (sombra ? 8 + med.tam * 0.45 : 0)) };
   }
 
   // Ajuste de una placa sobre el diseño del medio.
@@ -388,6 +388,85 @@
     return c;
   }
 
+  // ---------- 5. Animación (videos de las placas) ----------
+  // Se arma una vez por placa: la foto, la capa del medio y el título en capas separadas;
+  // después cuadro(ctx, t) dibuja el instante t (segundos). Formatos: "placa" 1080×1350 y "reel" 1080×1920.
+  const ESTILOS = {
+    suave:    { zoom: 0.08, capa: [0.15, 0.6], linea: [0.55, 0.22, 0.55], mov: "arriba" },
+    dinamico: { zoom: 0.12, capa: [0.05, 0.35], linea: [0.35, 0.14, 0.4], mov: "costado" },
+    quieta:   { zoom: 0.06, capa: null, linea: null, mov: null },
+  };
+  const lienzo = (w, h) => { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; };
+  const suavizar = (x) => { x = Math.max(0, Math.min(1, x)); return 1 - Math.pow(1 - x, 3); };
+  function prepararAnimacion({ medio, foto, titulo, ajuste, formato = "placa", estilo = "suave", duracion = 8 }) {
+    const opacidad = opacidadDe(medio, ajuste);
+    const m = medioAjustado(medio, ajuste);
+    const e = ESTILOS[estilo] || ESTILOS.suave;
+    // capa del medio sola (transparente)
+    const capa = lienzo(ANCHO, ALTO), cx = capa.getContext("2d");
+    if (m._capa) dibujarCapa(cx, m._capa, opacidad); else dibujarBoceto(cx, m);
+    // título solo (transparente) y la franja de cada renglón
+    const tit = lienzo(ANCHO, ALTO);
+    const med = dibujarTitulo(tit.getContext("2d"), m, titulo || "");
+    const n = med.renglones.length;
+    const franjas = med.renglones.map((_, i) => {
+      const a = i === 0 ? med.y0 - med.margen - med.tam : med.y0 + i * med.lh;
+      const b = i === n - 1 ? med.y0 + n * med.lh + med.margen + med.tam : med.y0 + (i + 1) * med.lh;
+      return [Math.max(0, Math.floor(a)), Math.min(ALTO, Math.ceil(b))];
+    });
+    const z = m.config.foto;
+    const reel = formato === "reel";
+    const W = ANCHO, H = reel ? 1920 : ALTO, dy = reel ? Math.round((1920 - ALTO) / 2) : 0;
+    // fondo del reel: la misma foto desenfocada y oscurecida (achicar y agrandar = desenfoque en cualquier navegador)
+    let fondoReel = null;
+    if (reel) {
+      fondoReel = lienzo(W, H);
+      const fx = fondoReel.getContext("2d");
+      fx.fillStyle = "#111"; fx.fillRect(0, 0, W, H);
+      if (foto) {
+        const k = Math.max(W / foto.width, H / foto.height) * 1.15;
+        const w = foto.width * k, h = foto.height * k, x = (W - w) / 2, y = (H - h) / 2;
+        if ("filter" in fx) { fx.filter = "blur(48px)"; fx.drawImage(foto, x, y, w, h); fx.filter = "none"; }
+        else { // sin filtros: achicar y agrandar en pasos (desenfoque parejo, sin cuadraditos)
+          let c = lienzo(68, 120); c.getContext("2d").drawImage(foto, x * 68 / W, y * 120 / H, w * 68 / W, h * 120 / H);
+          for (const [a, b] of [[270, 480], [W, H]]) { const d = lienzo(a, b), dx = d.getContext("2d"); dx.imageSmoothingQuality = "high"; dx.drawImage(c, 0, 0, a, b); c = d; }
+          fx.drawImage(c, 0, 0);
+        }
+        fx.fillStyle = "rgba(0,0,0,.45)"; fx.fillRect(0, 0, W, H);
+      }
+    }
+    const marco = reel ? lienzo(ANCHO, ALTO) : null;
+    function cuadro(ctx, t) {
+      const c = marco ? marco.getContext("2d") : ctx;
+      c.save();
+      c.fillStyle = "#111"; c.fillRect(0, 0, ANCHO, ALTO);
+      // foto con zoom lento hacia adentro
+      c.save(); c.beginPath(); c.rect(z.x, z.y, z.w, z.h); c.clip();
+      if (foto) {
+        const k = Math.max(z.w / foto.width, z.h / foto.height) * (1 + e.zoom * suavizar(t / duracion));
+        const w = foto.width * k, h = foto.height * k;
+        const fx = z.focoX ?? 0.5, fy = z.focoY ?? 0.5;
+        c.drawImage(foto, z.x + (z.w - w) * fx, z.y + (z.h - h) * fy, w, h);
+      } else { c.fillStyle = "#3a3a40"; c.fillRect(z.x, z.y, z.w, z.h); }
+      c.restore();
+      // capa del medio
+      c.globalAlpha = e.capa ? suavizar((t - e.capa[0]) / e.capa[1]) : 1;
+      if (c.globalAlpha > 0) c.drawImage(capa, 0, 0);
+      c.globalAlpha = 1;
+      // título renglón por renglón
+      franjas.forEach(([a, b], i) => {
+        const p = e.linea ? suavizar((t - e.linea[0] - i * e.linea[1]) / e.linea[2]) : 1;
+        if (p <= 0) return;
+        c.globalAlpha = p;
+        const ox = e.mov === "costado" ? -(1 - p) * 90 : 0, oy = e.mov === "arriba" ? (1 - p) * 34 : 0;
+        c.drawImage(tit, 0, a, ANCHO, b - a, ox, a + oy, ANCHO, b - a);
+      });
+      c.restore();
+      if (marco) { ctx.drawImage(fondoReel, 0, 0); ctx.drawImage(marco, 0, dy); }
+    }
+    return { ancho: W, alto: H, duracion, cuadro, entra: med.entra };
+  }
+
   const aBlob = (c, tipo = "image/jpeg", calidad = 0.92) => new Promise((ok) => c.toBlob(ok, tipo, calidad));
   const nombreArchivo = (t) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^\w]+/g, "-").replace(/^-|-$/g, "").toLowerCase();
 
@@ -421,5 +500,5 @@
     return zip.generateAsync({ type: "blob", compression: "STORE" }); // los JPG ya vienen comprimidos
   }
 
-  window.Placas = { ANCHO, ALTO, MEDIOS_DEFECTO, SIN_AJUSTE, RELATIVOS, ABSOLUTOS, hayAjuste, cajaAjustada, opacidadDe, leerPunteo, repartir, cargarMedios, prepararMedios, leerFoto, componer, medirTitulo, aBlob, armarZip, nombreArchivo, palabrasClave };
+  window.Placas = { ANCHO, ALTO, MEDIOS_DEFECTO, SIN_AJUSTE, RELATIVOS, ABSOLUTOS, hayAjuste, cajaAjustada, opacidadDe, leerPunteo, repartir, cargarMedios, prepararMedios, leerFoto, componer, medirTitulo, aBlob, armarZip, nombreArchivo, palabrasClave, prepararAnimacion, ESTILOS };
 })();

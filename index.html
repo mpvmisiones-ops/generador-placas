@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex">
   <!-- Seguridad: solo se cargan scripts/conexiones de estos sitios (GitHub Pages no permite cabeceras) -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://mkzxrthxgiakbfpyjmls.supabase.co; img-src 'self' blob: data: https://mkzxrthxgiakbfpyjmls.supabase.co; connect-src 'self' https://mkzxrthxgiakbfpyjmls.supabase.co wss://mkzxrthxgiakbfpyjmls.supabase.co https://graph.facebook.com; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self' blob:">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com https://mkzxrthxgiakbfpyjmls.supabase.co; img-src 'self' blob: data: https://mkzxrthxgiakbfpyjmls.supabase.co; connect-src 'self' https://mkzxrthxgiakbfpyjmls.supabase.co wss://mkzxrthxgiakbfpyjmls.supabase.co https://graph.facebook.com; object-src 'none'; base-uri 'none'; form-action 'self'; worker-src 'self' blob:; media-src 'self' blob:">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=28">
+  <link rel="stylesheet" href="css/app.css?v=29">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
@@ -300,6 +300,36 @@
     </div>
   </dialog>
 
+  <!-- Videos de las placas -->
+  <dialog id="dlg-video" class="hoja hoja-video" aria-labelledby="v-titulo">
+    <div class="hoja-cab">
+      <div class="hoja-titulo"><strong id="v-titulo">Videos de las placas</strong><span class="suave">La placa animada, lista para Reels o el feed</span></div>
+      <button type="button" class="btn btn-chico btn-principal" id="v-cerrar">Cerrar</button>
+    </div>
+    <div class="hoja-cuerpo">
+      <div class="v-vista">
+        <canvas id="v-canvas" width="1080" height="1920"></canvas>
+        <label class="v-elegir">Vista previa de <select id="v-placa"></select></label>
+      </div>
+      <div class="v-controles">
+        <h3>Formato</h3>
+        <div class="e-segm" data-g="formato"><button type="button" data-v="reel">Reel 9:16</button><button type="button" data-v="placa">Placa 4:5</button></div>
+        <h3>Animación</h3>
+        <div class="e-segm" data-g="estilo"><button type="button" data-v="suave">Suave</button><button type="button" data-v="dinamico">Dinámica</button><button type="button" data-v="quieta">Solo zoom</button></div>
+        <h3>Duración</h3>
+        <div class="e-segm" data-g="duracion"><button type="button" data-v="6">6 s</button><button type="button" data-v="8">8 s</button><button type="button" data-v="10">10 s</button></div>
+        <p class="suave v-aviso" id="v-aviso"></p>
+        <div class="v-acciones">
+          <button type="button" class="btn btn-borde" id="v-una">Descargar solo este video</button>
+          <button type="button" class="btn btn-grande btn-principal" id="v-todas">Hacer todos los videos (ZIP)</button>
+          <button type="button" class="btn btn-chico btn-peligro" id="v-cancelar" hidden>Cancelar</button>
+        </div>
+        <p class="e-nota" id="v-estado" role="status"></p>
+        <p class="suave v-ayuda">Se arman en este dispositivo: en la compu tardan segundos; en el celular, bastante más. Sin música (se puede agregar después en Facebook o Instagram).</p>
+      </div>
+    </div>
+  </dialog>
+
   <dialog id="dlg-config">
     <form method="dialog">
       <h2>Configuración</h2>
@@ -317,12 +347,13 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js" integrity="sha384-EyR2P0dlmjnEGcm9xcjdAn0VedZpRHEwDLP9oSS6wYMvzHBHkUrvgonveazJ/sSx" crossorigin="anonymous"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
-  <script src="js/config.js?v=28"></script>
-  <script src="js/placas.js?v=28"></script>
-  <script src="js/generar.js?v=28"></script>
-  <script src="js/historial.js?v=28"></script>
-  <script src="js/facebook.js?v=28"></script>
-  <script src="js/plantillas.js?v=28"></script>
-  <script src="js/app.js?v=28"></script>
+  <script src="js/config.js?v=29"></script>
+  <script src="js/placas.js?v=29"></script>
+  <script src="js/generar.js?v=29"></script>
+  <script src="js/historial.js?v=29"></script>
+  <script src="js/facebook.js?v=29"></script>
+  <script src="js/video.js?v=29"></script>
+  <script src="js/plantillas.js?v=29"></script>
+  <script src="js/app.js?v=29"></script>
 </body>
 </html>

@@ -349,3 +349,20 @@ dialog.hoja[open] { display: flex; flex-direction: column; }
 .g-autoguardado.mal { color: var(--peligro); }
 .g-tanda-acc { display: flex; flex-wrap: wrap; gap: .4rem; }
 .g-tanda-ajena { background: #fff4e5; border-color: #f2c48d; }
+
+/* Videos de las placas */
+.g-pie-video { width: 100%; margin-top: .5rem; }
+.v-vista { position: sticky; top: 0; z-index: 1; background: var(--fondo); padding: 12px 16px 6px; text-align: center; box-shadow: 0 8px 12px -12px rgba(0,0,0,.25); }
+.v-vista canvas { display: block; margin: 0 auto; height: min(46dvh, 560px); width: auto; aspect-ratio: 4 / 5; border-radius: 8px; background: #222; }
+.v-vista canvas.v-reel { aspect-ratio: 9 / 16; }
+.v-elegir { display: inline-flex; gap: .4rem; align-items: center; margin-top: .5rem; font-size: .88rem; }
+.v-elegir select { max-width: 230px; }
+.v-controles { padding: 0 16px max(24px, env(safe-area-inset-bottom)); }
+.v-controles h3 { margin: .9rem 0 .3rem; font-size: 1rem; }
+.v-acciones { display: grid; gap: .5rem; margin-top: 1rem; }
+.v-aviso { font-size: .85rem; margin: .6rem 0 0; }
+.v-ayuda { font-size: .82rem; }
+@media (min-width: 760px) {
+  .hoja-video .v-vista { box-shadow: none; padding: 16px; }
+  .hoja-video .v-vista canvas { height: auto; max-height: calc(min(780px, 100dvh - 48px) - 150px); width: auto; max-width: 100%; }
+}

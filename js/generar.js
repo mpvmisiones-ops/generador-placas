@@ -113,7 +113,8 @@
           <button class="btn btn-borde" data-acc="atras" aria-label="Volver a las fotos"${dis}>←</button>
           <button class="btn btn-borde" data-acc="mezclar"${dis}>Volver a mezclar</button>
           <button class="btn btn-principal" data-acc="zip"${dis || (estado.placas.length ? "" : " disabled")}>Descargar ZIP</button>
-        </div>${window.Facebook?.puede() ? `
+        </div>
+        <button class="btn btn-borde g-pie-video" data-acc="video"${dis || (estado.placas.length ? "" : " disabled")}>🎬 Hacer videos de las placas</button>${window.Facebook?.puede() ? `
         <button class="btn btn-fb g-pie-fb" data-acc="fb"${dis || (estado.placas.length ? "" : " disabled")}>Publicar en Facebook</button>` : ""}`;
     }
   }
@@ -130,6 +131,7 @@
     }
     else if (acc === "zip") descargarZip(b);
     else if (acc === "fb") window.Facebook.abrir();
+    else if (acc === "video") window.Videos.abrir();
   }
 
   // ---------- Paso 1: punteo ----------
