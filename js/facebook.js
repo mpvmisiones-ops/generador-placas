@@ -22,6 +22,7 @@
   let publicando = false;
 
   const config = () => window.CONFIG || {};
+  const conectada = () => !!cuenta && Date.now() < cuenta.vence - 60e3;
   const G = () => window.Generar.estado;
   const puede = () => !!window.perfil?.activo && (window.perfil.rol === "admin" || !!window.perfil.puede_publicar);
   const paginaDe = (medio) => { const a = asignadas.get(medio); return a && (paginas.find(p => p.id === a.pagina_id) || { id: a.pagina_id, name: a.pagina_nombre, access_token: null }); };
@@ -301,6 +302,7 @@
     if (!confirm(ya ? `¿Publicar 1 placa AHORA y programar ${plural(lista.length - 1, "placa", "placas")} escalonadas en Facebook?` : `¿Programar ${plural(lista.length, "placa", "placas")} escalonadas en Facebook?`)) return;
     publicando = true; pintar();
     let ok = 0;
+    try {
     await Promise.all(lista.map(f => f.pl.redibujo));
     for (const f of lista) {
       const pag = paginaDe(f.medio);
@@ -329,7 +331,8 @@
       pintarEstado(f);
       await new Promise(r => setTimeout(r, 600)); // sin apurar a Facebook
     }
-    publicando = false;
+    } catch (e) { nota("Se cortó la publicación: " + e.message, true); }
+    finally { publicando = false; }
     // Queda anotado en el historial (si la tanda no estaba guardada, se guarda ahora con sus fotos).
     if (ok) { try { await window.Generar.guardarHistorial?.(); } catch (e) { console.warn("[facebook] historial:", e.message); } }
     const fallas = lista.filter(f => f.mal).length;
@@ -392,8 +395,13 @@
 
     const n = filas.filter(f => f.sel && paginaDe(f.medio)).length;
     const b = $("#fb-publicar");
-    b.disabled = publicando || !n || !cuenta;
-    b.textContent = publicando ? "Publicando…" : !n ? "Elegí placas para publicar" : modo === "ahora" ? (n > 1 ? `Publicar 1 ya y escalonar ${n - 1}` : "Publicar ahora") : `Programar ${plural(n, "placa", "placas")} escalonadas`;
+    const sinConexion = !conectada();
+    b.disabled = publicando || (!n && !sinConexion);
+    b.classList.toggle("btn-fb", sinConexion && !publicando);
+    b.textContent = publicando ? "Publicando…"
+      : sinConexion ? (cuenta ? "Volver a conectar Facebook (venció el permiso)" : "Conectar Facebook para publicar")
+      : !n ? "Elegí placas para publicar"
+      : modo === "ahora" ? (n > 1 ? `Publicar 1 ya y escalonar ${n - 1}` : "Publicar ahora") : `Programar ${plural(n, "placa", "placas")} escalonadas`;
   }
   function pintarEstado(f) {
     const el = document.querySelector(`#fb-lista [data-fila="${f.i}"] .fb-estado`);
@@ -413,7 +421,7 @@
     else if (acc === "conectar") conectar();
     else if (acc === "repartir") repartir();
     else if (acc === "mezclar") { semillaCopy++; G().noticias.forEach((n, k) => armarCopies(k)); asignarVariantes(); pintar(); nota("Nuevas opciones de copy (las editadas a mano se mantienen)."); }
-    else if (acc === "publicar") publicar();
+    else if (acc === "publicar") { if (conectada()) publicar(); else conectar(); }
   }
   function alCambiar(e) {
     const t = e.target;
