@@ -453,9 +453,31 @@
         if (suma < mejor) { mejor = suma; corte = y; }
       }
     } catch (err) { console.warn("[placas] reel: corte por defecto", err.message); }
-    const bajar = (y) => (y < corte ? y : y + G);
-    // zona de la foto en el reel (se estira si cruza el corte)
-    const zr = { ...z, y: bajar(z.y), h: (z.y + z.h > corte ? z.y + z.h + G : z.y + z.h) - bajar(z.y) };
+    // La gráfica de abajo (caja del título) se sube hasta quedar centrada en la pantalla vertical
+    // (además así queda fuera de la zona de abajo que tapan los textos y botones de los Reels).
+    // G1: cuánto baja respecto de la placa; debajo de la gráfica el diseño sigue hasta el borde (G2).
+    const tt = m.config.titulo;
+    const G1 = reel ? Math.max(0, Math.min(G, Math.round(H * 0.5 - (tt.y + tt.h / 2)))) : 0, G2 = G - G1;
+    const bajar = (y) => (y < corte ? y : y + G1);
+    // zona de la foto en el reel: se estira si cruza el corte, y si llegaba al borde de abajo sigue hasta el final
+    const finZ = z.y + z.h, zb = finZ >= ALTO - 1 ? H : (finZ > corte ? finZ + G1 : finZ);
+    const zr = { ...z, y: bajar(z.y), h: zb - bajar(z.y) };
+    // Debajo de la gráfica sigue la foto (oscurecida hacia abajo) y el borde del diseño se funde con ella,
+    // sin tocar nunca el título.
+    let abajo = null, F = 0;
+    if (reel && G2) {
+      F = Math.max(0, Math.min(160, ALTO - (tt.y + tt.h) - 12));
+      abajo = lienzo(ANCHO, ALTO - corte);
+      const ax = abajo.getContext("2d");
+      ax.drawImage(capa, 0, corte, ANCHO, ALTO - corte, 0, 0, ANCHO, ALTO - corte);
+      if (F > 0) {
+        ax.globalCompositeOperation = "destination-in";
+        const gr = ax.createLinearGradient(0, abajo.height - F, 0, abajo.height);
+        gr.addColorStop(0, "rgba(0,0,0,1)"); gr.addColorStop(1, "rgba(0,0,0,0)");
+        ax.fillStyle = gr; ax.fillRect(0, 0, ANCHO, abajo.height); // un solo relleno: opaco arriba, se desvanece al final
+      }
+    }
+    const pie = { y: ALTO + G1 - F, h: H - (ALTO + G1 - F) }; // franja de abajo con la foto
     function cuadro(ctx, t) {
       const c = ctx;
       c.save();
@@ -470,14 +492,27 @@
         c.drawImage(foto, zr.x + (zr.w - w) * fx, zr.y + (zr.h - h) * fy, w, h);
       } else { c.fillStyle = "#3a3a40"; c.fillRect(zr.x, zr.y, zr.w, zr.h); }
       c.restore();
+      if (abajo && pie.h > 0) { // foto también debajo de la gráfica, con un degradé oscuro
+        c.save(); c.beginPath(); c.rect(0, pie.y, ANCHO, pie.h); c.clip();
+        if (foto) {
+          const k = Math.max(ANCHO / foto.width, pie.h / foto.height) * (1 + e.zoom * suavizar(t / duracion));
+          const w = foto.width * k, h = foto.height * k;
+          c.drawImage(foto, (ANCHO - w) / 2, pie.y + (pie.h - h) * 0.5, w, h);
+        }
+        const gr = c.createLinearGradient(0, pie.y, 0, H);
+        gr.addColorStop(0, "rgba(0,0,0,.25)"); gr.addColorStop(1, "rgba(0,0,0,.75)");
+        c.fillStyle = gr; c.fillRect(0, pie.y, ANCHO, pie.h);
+        c.restore();
+      }
       // capa del medio (en el reel: arriba / franja estirada / abajo)
       c.globalAlpha = e.capa ? suavizar((t - e.capa[0]) / e.capa[1]) : 1;
       if (c.globalAlpha > 0) {
         if (!reel) c.drawImage(capa, 0, 0);
         else {
           c.drawImage(capa, 0, 0, ANCHO, corte, 0, 0, ANCHO, corte);
-          c.drawImage(capa, 0, corte, ANCHO, 1, 0, corte, ANCHO, G);
-          c.drawImage(capa, 0, corte, ANCHO, ALTO - corte, 0, corte + G, ANCHO, ALTO - corte);
+          if (G1) c.drawImage(capa, 0, corte, ANCHO, 1, 0, corte, ANCHO, G1);
+          if (abajo) c.drawImage(abajo, 0, corte + G1);
+          else c.drawImage(capa, 0, corte, ANCHO, ALTO - corte, 0, corte + G1, ANCHO, ALTO - corte);
         }
       }
       c.globalAlpha = 1;
