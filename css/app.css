@@ -334,3 +334,14 @@ dialog.hoja[open] { display: flex; flex-direction: column; }
 #fb-publicar { margin-top: .6rem; }
 .h-fb { display: inline-block; margin: .3rem 0 0; padding: .15rem .55rem; border-radius: 999px; background: #e7efff; color: #1b4fbf; font-size: .85rem; font-weight: 700; }
 .fb-portfolios { font-size: .85rem; margin: .2rem 0; }
+.fb-ayuda { font-size: .85rem; margin: .4rem 0 0; }
+.fb-copy-op { display: flex; gap: .5rem; align-items: center; font-weight: 700; margin: .2rem 0 .4rem; }
+.fb-copy-op input { width: 22px; height: 22px; }
+.fb-copy-cfg { display: flex; flex-wrap: wrap; gap: .6rem; align-items: end; margin-bottom: .4rem; }
+.fb-copy-cfg label { margin: 0; font-size: .88rem; }
+.fb-copies { border: 1px solid #d9e4fb; background: #f6f9ff; border-radius: 10px; padding: .3rem .7rem; margin: .4rem 0; }
+.fb-copies summary { cursor: pointer; font-weight: 700; color: #1b4fbf; padding: .3rem 0; }
+.fb-copy { font-size: .85rem; }
+.fb-copy textarea { width: 100%; font-size: .9rem; }
+.fb-cuando { font-size: .85rem; font-weight: 700; color: var(--tinta); }
+.fb-dato select[data-var] { max-width: 120px; min-height: 34px; }

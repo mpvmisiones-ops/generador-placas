@@ -16,7 +16,9 @@
   let asignadas = new Map();  // medio_id → { pagina_id, pagina_nombre }
   let filas = [];             // una por placa: { pl, i, medio, sel, cuando: Date|null, estado, mal }
   let textos = [];            // texto de la publicación por noticia
-  let modo = "ahora";         // ahora | elegir | auto
+  let modo = "auto";          // auto (escalonado) | ahora (la primera ya, el resto escalonado) | elegir
+  let variar = false, nVar = 9, semillaCopy = 0;
+  let copies = [];            // por noticia: [{ texto, editado }] (opciones de copy)
   let publicando = false;
 
   const config = () => window.CONFIG || {};
@@ -41,6 +43,7 @@
     textos = g.noticias.map((n, k) => textos[k] && filas.length && filas[0].pl === g.placas[0] ? textos[k] : (cuerpos[k] || n.titulos[0] || ""));
     // Lo ya publicado queda anotado en la placa (y en el historial): sale desmarcado para no repetirlo.
     filas = g.placas.map((pl, i) => ({ pl, i, medio: pl.medio, sel: !pl.facebook, cuando: null, estado: pl.facebook ? textoHecho(pl.facebook) : "", mal: false }));
+    copies = []; filas.forEach(f => { f.variante = null; });
     nota("");
     dlg.showModal();
     pintar();
@@ -49,7 +52,7 @@
       if (error) throw error;
       asignadas = new Map(data.map(a => [a.medio_id, a]));
     } catch (e) { nota("No se pudieron leer las páginas de cada medio: " + e.message, true); }
-    pintar();
+    reajustar();
   }
 
   // ---------- Conectar con Facebook (ventana de Facebook → fb.html → esta pestaña) ----------
@@ -165,41 +168,120 @@
   const hora = (d) => d.toLocaleString("es-AR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const textoHecho = (fb) => (fb.estado === "programada" ? "Ya programada ✓ para " + hora(new Date(fb.cuando)) : "Ya publicada ✓ " + hora(new Date(fb.cuando))) + (fb.pagina ? " · " + fb.pagina : "");
   function inicioSugerido() { const d = new Date(Date.now() + 15 * 60e3); d.setSeconds(0, 0); d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5); return d; }
-  // Automático: cada página recibe sus publicaciones separadas por el intervalo (con un poco de variación
-  // para que no salgan todas "en punto"), y las páginas arrancan escalonadas entre sí.
-  function repartir() {
-    const desde = new Date($("#fb-desde").value || aLocal(inicioSugerido()));
-    const cada = Math.max(5, +$("#fb-cada").value || 30), vari = Math.max(0, Math.min(cada / 2, +$("#fb-vari").value || 0));
-    if (isNaN(desde)) return nota("Elegí desde qué hora.", true);
+  // Escalonado (para que Facebook no lo tome como una red publicando en bloque):
+  // · las páginas se turnan (una placa de cada página por vuelta, nunca todas juntas);
+  // · entre dos publicaciones cualesquiera pasan al menos unos minutos (el intervalo repartido entre las páginas);
+  // · una misma página espera el intervalo completo entre sus publicaciones;
+  // · a todo se le suma un poco de azar, para que no salgan "en punto".
+  const enCola = () => filas.filter(f => f.sel && paginaDe(f.medio));
+  function cola() {
     const porPagina = new Map();
-    filas.filter(f => f.sel && paginaDe(f.medio)).forEach(f => {
+    enCola().forEach(f => { const id = paginaDe(f.medio).id; if (!porPagina.has(id)) porPagina.set(id, []); porPagina.get(id).push(f); });
+    const grupos = [...porPagina.values()], q = [];
+    for (let i = 0; grupos.some(g => g[i]); i++) grupos.forEach(g => g[i] && q.push(g[i]));
+    return { q, nPag: grupos.length };
+  }
+  const ajustes = () => {
+    const cada = Math.max(15, Math.min(720, +$("#fb-cada").value || 30));
+    return { cada, vari: Math.max(0, Math.min(cada / 3, +$("#fb-vari").value || 0)) };
+  };
+  function repartir(silencioso) {
+    const { cada, vari } = ajustes();
+    const { q, nPag } = cola();
+    if (!q.length) { if (!silencioso) nota("Elegí placas con página asignada.", true); pintar(); return; }
+    const ahora = modo === "ahora";
+    let desde = ahora ? new Date() : new Date($("#fb-desde").value || aLocal(inicioSugerido()));
+    if (isNaN(desde)) desde = inicioSugerido();
+    const hueco = Math.max(4, cada / Math.max(1, nPag)); // minutos mínimos entre dos publicaciones cualesquiera
+    let ultimo = null; const ultimoPag = new Map();
+    q.forEach((f, i) => {
       const id = paginaDe(f.medio).id;
-      if (!porPagina.has(id)) porPagina.set(id, []);
-      porPagina.get(id).push(f);
+      if (ahora && i === 0) { f.cuando = null; ultimo = Date.now(); ultimoPag.set(id, ultimo); return; }
+      let t = ultimo == null ? desde.getTime() : ultimo + hueco * 60e3;
+      if (ultimoPag.has(id)) t = Math.max(t, ultimoPag.get(id) + cada * 60e3);
+      t += Math.random() * vari * 60e3;
+      t = Math.max(t, Date.now() + MIN_PROG);
+      const d = new Date(t); d.setSeconds(0, 0);
+      f.cuando = d; ultimo = d.getTime(); ultimoPag.set(id, ultimo);
     });
-    const n = porPagina.size || 1;
-    [...porPagina.values()].forEach((lista, k) => lista.forEach((f, j) => {
-      const azar = vari ? (Math.random() * 2 - 1) * vari : 0;
-      const t = desde.getTime() + (j * cada + k * cada / n + azar) * 60e3;
-      f.cuando = new Date(Math.max(t, Date.now() + MIN_PROG));
-      f.cuando.setSeconds(0, 0);
-    }));
-    nota("Horarios repartidos. Podés cambiar cualquiera a mano.");
+    const fechas = q.map(f => f.cuando).filter(Boolean);
+    const nombres = [...new Set(q.map(f => paginaDe(f.medio).name))];
+    const muchas = nombres.map(n => [n, q.filter(f => paginaDe(f.medio).name === n).length]).filter(([, c]) => c > 6);
+    if (!silencioso || muchas.length) nota(
+      (fechas.length ? `${ahora ? "La primera sale ya; " : ""}${plural(fechas.length, "publicación programada", "publicaciones programadas")} entre ${hora(new Date(Math.min(...fechas)))} y ${hora(new Date(Math.max(...fechas)))}. ` : "Sale ya. ") +
+      `Al menos ${Math.round(hueco)} min entre páginas y ${cada} min en la misma página.` +
+      (muchas.length ? ` Ojo: ${muchas.map(([n, c]) => `${n} recibe ${c}`).join(", ")}; muchas en el día pueden bajar el alcance.` : ""), !!muchas.length);
     pintar();
   }
+  // Recalcula solo cuando el reparto es automático (con "Elijo la hora" se respeta lo elegido).
+  function reajustar() { asignarVariantes(); if (modo === "elegir") pintar(); else repartir(true); }
+  // Horarios elegidos a mano: avisa si quedaron muy juntos.
+  function muyJuntos(lista) {
+    const ord = [...lista].sort((a, b) => a.cuando - b.cuando), mal = [];
+    for (let i = 1; i < ord.length; i++) if (ord[i].cuando - ord[i - 1].cuando < 2 * 60e3) { mal.push("hay publicaciones con menos de 2 minutos de diferencia"); break; }
+    const porPag = new Map(); ord.forEach(f => { const id = paginaDe(f.medio).id; if (!porPag.has(id)) porPag.set(id, []); porPag.get(id).push(f); });
+    for (const fs of porPag.values()) for (let i = 1; i < fs.length; i++) if (fs[i].cuando - fs[i - 1].cuando < 15 * 60e3) { mal.push(`${paginaDe(fs[i].medio).name} tiene dos con menos de 15 minutos`); return mal; }
+    return mal;
+  }
+
+  // ---------- Opciones de copy (hasta 9 por noticia) ----------
+  // Cada variante combina el texto de la noticia con un título distinto y otra forma de arrancar o cerrar.
+  // Se pueden editar; las editadas no se pisan al cambiar el texto base ni al pedir otras opciones.
+  const EMOJIS = ["🔴", "📰", "📢", "👉", "⚡", "📌", "🗞️", "ℹ️", "🟠"];
+  function armarCopies(k) {
+    const n = G().noticias[k], Ts = n.titulos.length ? n.titulos : [""];
+    const T = (i) => Ts[i % Ts.length], e = (i) => EMOJIS[(i + semillaCopy) % EMOJIS.length];
+    const cuerpo = (textos[k] || "").trim() || T(0);
+    const formas = [
+      () => cuerpo,
+      () => `${e(0)} ${T(0)}\n\n${cuerpo}`,
+      () => `${T(1)}\n\n${cuerpo}`,
+      () => `${e(1)} ${cuerpo}`,
+      () => `${cuerpo}\n\n${e(2)} ${T(2)}`,
+      () => `${T(0)} ${e(3)}\n\n${cuerpo}`,
+      () => `${e(4)} ${T(1)}\n${cuerpo}`,
+      () => `${e(5)} ${T(2)} ${e(5)}\n\n${cuerpo}`,
+      () => `${cuerpo}\n\n${e(6)} ${T(0)}`,
+    ];
+    const viejas = copies[k] || [];
+    copies[k] = Array.from({ length: nVar }, (_, j) =>
+      viejas[j]?.editado ? viejas[j] : { texto: formas[(j + semillaCopy) % formas.length]().trim(), editado: false });
+  }
+  // Reparte las variantes entre las placas de cada noticia (una distinta por página, en ronda).
+  function asignarVariantes() {
+    if (!variar) return;
+    G().noticias.forEach((n, k) => {
+      if (!copies[k] || copies[k].length !== nVar) armarCopies(k);
+      let j = 0;
+      filas.filter(f => f.pl.noticia === k && paginaDe(f.medio)).forEach(f => {
+        if (f.varManual && f.variante < nVar) return;
+        f.variante = j++ % nVar;
+      });
+    });
+  }
+  const textoDe = (f) => variar ? (copies[f.pl.noticia]?.[f.variante ?? 0]?.texto ?? textos[f.pl.noticia]) : textos[f.pl.noticia];
 
   // ---------- Publicar ----------
   async function publicar() {
     const lista = filas.filter(f => f.sel && paginaDe(f.medio));
     if (!lista.length) return nota("No hay placas elegidas con página asignada.", true);
     if (!cuenta || Date.now() > cuenta.vence - 60e3) { cuenta = null; pintar(); return nota("Conectá Facebook (o volvé a conectar: el permiso venció).", true); }
-    if (modo !== "ahora") {
-      const mal = lista.find(f => !f.cuando || f.cuando - Date.now() < MIN_PROG - 60e3 || f.cuando - Date.now() > MAX_PROG);
-      if (mal) return nota(`Revisá el horario de ${window.Generar.estado.medios.find(m => m.id === mal.medio)?.nombre} (noticia ${mal.pl.noticia + 1}): tiene que ser entre 10 minutos y 29 días desde ahora.`, true);
+    if (modo !== "elegir") repartir(true); // horarios frescos (el reloj avanzó desde que se repartieron)
+    const ya = lista.filter(f => !f.cuando).length; // solo la primera en "Ahora"
+    if (ya > 1) return nota("Solo una placa puede salir en el momento; el resto se escalona.", true);
+    const mal = lista.find(f => f.cuando && (f.cuando - Date.now() < MIN_PROG - 60e3 || f.cuando - Date.now() > MAX_PROG));
+    if (mal) return nota(`Revisá el horario de ${window.Generar.estado.medios.find(m => m.id === mal.medio)?.nombre} (noticia ${mal.pl.noticia + 1}): tiene que ser entre 10 minutos y 29 días desde ahora.`, true);
+    if (modo === "elegir") {
+      const juntos = muyJuntos(lista);
+      if (juntos.length && confirm(`Ojo: ${juntos.join(" y ")}. Publicar tan seguido puede hacer que Facebook baje el alcance o lo tome como spam.\n\n¿Los acomodo automáticamente a partir del primer horario?`)) {
+        const primero = new Date(Math.min(...lista.map(f => f.cuando)));
+        $("#fb-desde").value = aLocal(primero); modo = "auto"; repartir();
+        return nota("Acomodé los horarios en modo Automático. Revisalos y tocá Programar.");
+      }
     }
-    const vacio = lista.find(f => !textos[f.pl.noticia]?.trim());
+    const vacio = lista.find(f => !textoDe(f)?.trim());
     if (vacio && !confirm(`La noticia ${vacio.pl.noticia + 1} no tiene texto. ¿Publicar solo con la imagen?`)) return;
-    if (!confirm(modo === "ahora" ? `¿Publicar AHORA ${plural(lista.length, "placa", "placas")} en Facebook?` : `¿Programar ${plural(lista.length, "placa", "placas")} en Facebook?`)) return;
+    if (!confirm(ya ? `¿Publicar 1 placa AHORA y programar ${plural(lista.length - 1, "placa", "placas")} escalonadas en Facebook?` : `¿Programar ${plural(lista.length, "placa", "placas")} escalonadas en Facebook?`)) return;
     publicando = true; pintar();
     let ok = 0;
     await Promise.all(lista.map(f => f.pl.redibujo));
@@ -210,17 +292,17 @@
         if (!pag.access_token) throw new Error("Tu Facebook no administra la página " + pag.name + ".");
         const fd = new FormData();
         fd.append("source", f.pl.blob, "placa.jpg");
-        const texto = textos[f.pl.noticia]?.trim();
+        const texto = textoDe(f)?.trim();
         if (texto) fd.append("message", texto);
-        if (modo === "ahora") fd.append("published", "true");
+        if (!f.cuando) fd.append("published", "true");
         else {
           fd.append("published", "false");
           fd.append("scheduled_publish_time", String(Math.floor(f.cuando.getTime() / 1000)));
           fd.append("unpublished_content_type", "SCHEDULED");
         }
         await graph(`/${pag.id}/photos`, pag.access_token, { body: fd });
-        f.estado = modo === "ahora" ? "Publicada ✓" : "Programada ✓ " + hora(f.cuando);
-        f.pl.facebook = { estado: modo === "ahora" ? "publicada" : "programada", cuando: (modo === "ahora" ? new Date() : f.cuando).toISOString(), pagina: pag.name };
+        f.estado = !f.cuando ? "Publicada ✓" : "Programada ✓ " + hora(f.cuando);
+        f.pl.facebook = { estado: !f.cuando ? "publicada" : "programada", cuando: (f.cuando || new Date()).toISOString(), pagina: pag.name };
         f.sel = false; ok++;
       } catch (e) {
         f.mal = true; f.estado = "Error: " + e.message;
@@ -233,7 +315,7 @@
     // Queda anotado en el historial (si la tanda no estaba guardada, se guarda ahora con sus fotos).
     if (ok) { try { await window.Generar.guardarHistorial?.(); } catch (e) { console.warn("[facebook] historial:", e.message); } }
     const fallas = lista.filter(f => f.mal).length;
-    nota(`${modo === "ahora" ? "Publicadas" : "Programadas"}: ${ok} de ${lista.length}.${fallas ? " Las que fallaron quedaron marcadas en rojo." : ""}`, !!fallas);
+    nota(`Listas: ${ok} de ${lista.length}.${fallas ? " Las que fallaron quedaron marcadas en rojo." : ""}`, !!fallas);
     pintar();
   }
 
@@ -257,7 +339,12 @@
     }).join("");
 
     document.querySelectorAll("#fb-modo [data-modo]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.modo === modo)));
-    $("#fb-auto").hidden = modo !== "auto";
+    $("#fb-auto").hidden = modo === "elegir";
+    $("#fb-desde-l").hidden = modo !== "auto";
+    $("#fb-modo-ayuda").textContent = modo === "auto" ? "Recomendado: las páginas se turnan y cada una espera su intervalo, con un poco de azar. Así Facebook no lo toma como publicación en bloque."
+      : modo === "ahora" ? "Sale una sola placa en el momento; el resto se programa escalonado igual que en Automático."
+      : "Elegís la hora de cada placa. Si quedan muy juntas, te aviso antes de programar.";
+    $("#fb-variar").checked = variar; $("#fb-copy-cfg").hidden = !variar; $("#fb-nvar").value = String(nVar);
     if (!$("#fb-desde").value) $("#fb-desde").value = aLocal(inicioSugerido());
 
     $("#fb-lista").innerHTML = g.noticias.map((n, k) => {
@@ -265,14 +352,19 @@
       const sinPagina = filas.filter(f => f.pl.noticia === k && !paginaDe(f.medio)).map(f => g.medios.find(x => x.id === f.medio)?.nombre).filter(Boolean);
       return `<section class="fb-noticia">
         <h3>Noticia ${k + 1}: ${esc(n.titulos[0] || "")}</h3>
-        <label>Texto de la publicación<textarea rows="4" data-texto="${k}"${publicando ? " disabled" : ""}>${esc(textos[k] || "")}</textarea></label>
+        <label>${variar ? "Texto base de la noticia" : "Texto de la publicación"}<textarea rows="4" data-texto="${k}"${publicando ? " disabled" : ""}>${esc(textos[k] || "")}</textarea></label>
+        ${variar && copies[k] ? `<details class="fb-copies"${k === 0 ? " open" : ""}><summary>${plural(nVar, "opción de copy", "opciones de copy")} (se reparten entre las páginas)</summary>
+          ${copies[k].map((c, j) => `<label class="fb-copy">Copy ${j + 1}${c.editado ? ' <span class="suave">(editado)</span>' : ""}<textarea rows="3" data-copy="${k}-${j}"${publicando ? " disabled" : ""}>${esc(c.texto)}</textarea></label>`).join("")}
+        </details>` : ""}
         ${suyas.map(f => {
           const m = g.medios.find(x => x.id === f.medio), pag = paginaDe(f.medio);
           return `<div class="fb-fila${pag ? "" : " fb-sin"}" data-fila="${f.i}">
             <input type="checkbox" data-sel aria-label="Publicar la placa de ${esc(m?.nombre)}"${f.sel && pag ? " checked" : ""}${pag && !publicando ? "" : " disabled"}>
             <img src="${esc(f.pl.url || "")}" alt="">
             <div class="fb-dato"><strong>${esc(m?.nombre)}</strong><span class="suave">${pag ? "→ " + esc(pag.name) : "sin página asignada"}</span>
-              ${modo !== "ahora" && pag ? `<input type="datetime-local" data-cuando value="${aLocal(f.cuando)}"${publicando ? " disabled" : ""}>` : ""}
+              ${pag && f.sel && !f.pl.facebook ? (modo === "elegir" ? `<input type="datetime-local" data-cuando value="${aLocal(f.cuando)}"${publicando ? " disabled" : ""}>`
+                : `<span class="fb-cuando">${f.cuando ? "🕒 " + esc(hora(f.cuando)) : "⚡ Sale ya"}</span>`) : ""}
+              ${variar && pag && f.sel ? `<select data-var aria-label="Copy de esta placa"${publicando ? " disabled" : ""}>${(copies[f.pl.noticia] || []).map((_, j) => `<option value="${j}"${f.variante === j ? " selected" : ""}>Copy ${j + 1}</option>`).join("")}</select>` : ""}
               <span class="fb-estado${f.mal ? " mal" : ""}">${esc(f.estado)}</span></div>
           </div>`;
         }).join("")}
@@ -283,7 +375,7 @@
     const n = filas.filter(f => f.sel && paginaDe(f.medio)).length;
     const b = $("#fb-publicar");
     b.disabled = publicando || !n || !cuenta;
-    b.textContent = publicando ? "Publicando…" : !n ? "Elegí placas para publicar" : `${modo === "ahora" ? "Publicar ahora" : "Programar"} ${plural(n, "placa", "placas")}`;
+    b.textContent = publicando ? "Publicando…" : !n ? "Elegí placas para publicar" : modo === "ahora" ? (n > 1 ? `Publicar 1 ya y escalonar ${n - 1}` : "Publicar ahora") : `Programar ${plural(n, "placa", "placas")} escalonadas`;
   }
   function pintarEstado(f) {
     const el = document.querySelector(`#fb-lista [data-fila="${f.i}"] .fb-estado`);
@@ -294,25 +386,35 @@
     const b = e.target.closest("[data-fb], [data-modo]"); if (!b || publicando) return;
     if (b.dataset.modo) {
       modo = b.dataset.modo;
-      if (modo === "elegir") filas.forEach(f => { f.cuando ||= inicioSugerido(); });
-      if (modo === "auto") repartir(); else pintar();
+      if (modo === "elegir") { filas.forEach(f => { f.cuando ||= inicioSugerido(); }); nota(""); pintar(); }
+      else repartir();
       return;
     }
     const acc = b.dataset.fb;
     if (acc === "cerrar") $("#dlg-fb").close();
     else if (acc === "conectar") conectar();
     else if (acc === "repartir") repartir();
+    else if (acc === "mezclar") { semillaCopy++; G().noticias.forEach((n, k) => armarCopies(k)); asignarVariantes(); pintar(); nota("Nuevas opciones de copy (las editadas a mano se mantienen)."); }
     else if (acc === "publicar") publicar();
   }
   function alCambiar(e) {
     const t = e.target;
-    if (t.matches("select[data-medio]")) return asignar(t.dataset.medio, t.value);
+    if (t.matches("select[data-medio]")) return asignar(t.dataset.medio, t.value).then(reajustar);
+    if (t.id === "fb-variar") { variar = t.checked; copies = []; filas.forEach(f => { f.variante = null; f.varManual = false; }); asignarVariantes(); return pintar(); }
+    if (t.id === "fb-nvar") { nVar = Math.max(1, Math.min(9, +t.value || 9)); filas.forEach(f => { f.varManual = false; }); copies = copies.map(() => null); asignarVariantes(); return pintar(); }
+    if (t.id === "fb-cada" || t.id === "fb-vari" || t.id === "fb-desde") { if (modo !== "elegir") repartir(); return; }
+    if (t.matches("[data-texto]")) { if (variar) { armarCopies(+t.dataset.texto); pintar(); } return; }
     const fila = t.closest("[data-fila]"); if (!fila) return;
     const f = filas.find(x => x.i === +fila.dataset.fila);
-    if (t.matches("[data-sel]")) { f.sel = t.checked; pintar(); }
+    if (t.matches("[data-sel]")) { f.sel = t.checked; reajustar(); }
     else if (t.matches("[data-cuando]")) { f.cuando = t.value ? new Date(t.value) : null; }
+    else if (t.matches("[data-var]")) { f.variante = +t.value; f.varManual = true; }
   }
-  function alEscribir(e) { const t = e.target; if (t.matches("[data-texto]")) textos[+t.dataset.texto] = t.value; }
+  function alEscribir(e) {
+    const t = e.target;
+    if (t.matches("[data-texto]")) textos[+t.dataset.texto] = t.value;
+    else if (t.matches("[data-copy]")) { const [k, j] = t.dataset.copy.split("-").map(Number); if (copies[k]?.[j]) Object.assign(copies[k][j], { texto: t.value, editado: true }); }
+  }
 
   window.Facebook = { abrir, puede };
 })();

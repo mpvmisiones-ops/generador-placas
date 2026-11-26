@@ -9,7 +9,7 @@
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <meta name="theme-color" content="#16161a">
   <title>Generador de Placas</title>
-  <link rel="stylesheet" href="css/app.css?v=23">
+  <link rel="stylesheet" href="css/app.css?v=24">
 </head>
 <body>
   <header class="barra" id="barra" hidden>
@@ -271,15 +271,23 @@
         <div id="fb-medios" class="fb-medios"></div>
         <h3>3. Cuándo</h3>
         <div class="e-segm" id="fb-modo">
-          <button type="button" data-modo="ahora">Ahora</button><button type="button" data-modo="elegir">Elijo la hora</button><button type="button" data-modo="auto">Automático</button>
+          <button type="button" data-modo="auto">Automático</button><button type="button" data-modo="ahora">Ahora</button><button type="button" data-modo="elegir">Elijo la hora</button>
         </div>
+        <p class="suave fb-ayuda" id="fb-modo-ayuda"></p>
         <div class="fb-auto" id="fb-auto" hidden>
-          <label>Desde <input type="datetime-local" id="fb-desde"></label>
-          <label>Cada (minutos) <input type="number" id="fb-cada" min="5" max="720" value="30"></label>
-          <label>Variación ± (min) <input type="number" id="fb-vari" min="0" max="60" value="5"></label>
-          <button type="button" class="btn btn-chico btn-borde" data-fb="repartir">Repartir horarios</button>
+          <label id="fb-desde-l">Desde <input type="datetime-local" id="fb-desde"></label>
+          <label>Misma página cada (min) <input type="number" id="fb-cada" min="15" max="720" value="30"></label>
+          <label>Variación al azar (min) <input type="number" id="fb-vari" min="0" max="30" value="6"></label>
+          <button type="button" class="btn btn-chico btn-borde" data-fb="repartir">🔀 Volver a repartir</button>
         </div>
         <h3>4. Placas y texto</h3>
+        <label class="fb-copy-op"><input type="checkbox" id="fb-variar"> Opciones de copy <span class="suave">(un texto distinto por página)</span></label>
+        <div class="fb-copy-cfg" id="fb-copy-cfg" hidden>
+          <label>Variantes por noticia
+            <select id="fb-nvar"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option selected>9</option></select>
+          </label>
+          <button type="button" class="btn btn-chico btn-borde" data-fb="mezclar">🔀 Otras opciones</button>
+        </div>
         <div id="fb-lista"></div>
         <p class="e-nota" id="fb-nota" role="status"></p>
         <button type="button" class="btn btn-grande btn-principal" id="fb-publicar" data-fb="publicar">Publicar</button>
@@ -304,12 +312,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.115.0/dist/umd/supabase.min.js" integrity="sha384-EyR2P0dlmjnEGcm9xcjdAn0VedZpRHEwDLP9oSS6wYMvzHBHkUrvgonveazJ/sSx" crossorigin="anonymous"></script>
   <!-- Subir el número de ?v= en cada cambio para que los navegadores no usen la versión vieja -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
-  <script src="js/config.js?v=23"></script>
-  <script src="js/placas.js?v=23"></script>
-  <script src="js/generar.js?v=23"></script>
-  <script src="js/historial.js?v=23"></script>
-  <script src="js/facebook.js?v=23"></script>
-  <script src="js/plantillas.js?v=23"></script>
-  <script src="js/app.js?v=23"></script>
+  <script src="js/config.js?v=24"></script>
+  <script src="js/placas.js?v=24"></script>
+  <script src="js/generar.js?v=24"></script>
+  <script src="js/historial.js?v=24"></script>
+  <script src="js/facebook.js?v=24"></script>
+  <script src="js/plantillas.js?v=24"></script>
+  <script src="js/app.js?v=24"></script>
 </body>
 </html>
