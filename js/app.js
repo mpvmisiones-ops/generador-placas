@@ -1,6 +1,8 @@
 // Generador de Placas · login, roles, pestañas y gestión de usuarios (Etapa 1).
 // El motor de placas está en js/placas.js; las pestañas Generar y Plantillas en js/generar.js y js/plantillas.js.
 (() => {
+  // Seguridad: el sitio no se deja mostrar dentro de otra página (evita que lo usen para engañar clics).
+  if (window.top !== window.self) { document.documentElement.hidden = true; try { window.top.location = window.self.location.href; } catch {} return; }
   const $ = (s, el = document) => el.querySelector(s);
   const $$ = (s, el = document) => [...el.querySelectorAll(s)];
   const C = window.CONFIG || {};
@@ -159,7 +161,7 @@
     try {
       const { usuarios } = await llamarAdmin({ accion: "listar" });
       ul.innerHTML = usuarios.map(u => `
-        <li data-id="${u.id}" data-usuario="${esc(u.usuario)}">
+        <li data-id="${esc(u.id)}" data-usuario="${esc(u.usuario)}">
           <div class="u-datos">
             <strong>${esc(u.usuario)}</strong>
             <span class="etiqueta ${u.rol === "admin" ? "etq-admin" : "etq-productor"}">${u.rol === "admin" ? "Admin" : "Productor"}</span>

@@ -498,12 +498,8 @@
           if (f.path) continue;
           try { await subirFoto(f); } catch (e) { sinSubir++; console.warn("[placas] foto sin subir:", e.message); }
         }
-        const yo = window.perfil?.nombre || window.perfil?.usuario || "";
-        const ahora = new Date().toISOString();
-        const resultado = {
+        const resultado = { // autor, corrector y fechas los pone la base (no se confía en el navegador)
           version: 2, semilla: estado.semilla,
-          autor: estado.historialInfo?.autor || yo,
-          ...(estado.historialInfo ? { editado_por: yo, editado_en: ahora } : {}),
           noticias: estado.noticias.map(n => ({ titulos: n.titulos, fotos: n.fotos.map(f => ({ nombre: f.nombre, path: f.path || null })) })),
           placas: estado.placas.map(pl => ({
             noticia: pl.noticia, medio: pl.medio, titulo: pl.titulo,
@@ -586,7 +582,9 @@
     if (estado.armando) return false;
     if (estado.historialId !== fila.id && estado.noticias.some(n => n.fotos.length) &&
         !confirm("Se va a reemplazar lo que estás armando ahora. ¿Abrir la tanda del historial?")) return false;
-    const r = fila.resultado || {};
+    const lista = (x) => Array.isArray(x) ? x : [];
+    const r0 = fila.resultado && typeof fila.resultado === "object" ? fila.resultado : {};
+    const r = { ...r0, noticias: lista(r0.noticias).filter(n => n && typeof n === "object").map(n => ({ ...n, titulos: lista(n.titulos).map(String), fotos: lista(n.fotos) })), placas: lista(r0.placas).filter(p => p && typeof p === "object") };
     limpiarTodo();
     estado.armando = true; pintarPie();
     aviso("Abriendo la tanda…");
@@ -615,7 +613,7 @@
       estado.placas = placasGuardadas(r.placas || [], porIndice);
       estado.semilla = r.semilla || 0;
       estado.historialId = fila.id;
-      estado.historialInfo = { fecha: new Date(fila.creado_en).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }), autor: r.autor || "" };
+      estado.historialInfo = { fecha: new Date(fila.creado_en).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }), autor: fila._autor || "" };
       estado.firma = firma();
       estado.guardado = claveTanda();
     } catch (e) {

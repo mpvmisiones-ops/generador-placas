@@ -15,12 +15,12 @@
     medios = await P.cargarMedios(sb);
     await P.prepararMedios(medios, sb);
     ul.innerHTML = medios.map(m => `
-      <li data-id="${m.id}">
+      <li data-id="${esc(m.id)}">
         <canvas class="p-vista" width="1080" height="1350"></canvas>
         <div class="u-datos">
           <strong>${esc(m.nombre)}</strong>
           ${m.capa_path ? '<span class="etiqueta etq-productor">Capa propia</span>' : m._capa ? '<span class="etiqueta etq-productor">Capa del sitio</span>' : '<span class="etiqueta etq-pausado">Sin capa (boceto)</span>'}
-          <div class="suave">${esc(m.config.titulo.fuente)} ${m.config.titulo.peso} · ${m.config.titulo.tam}px</div>
+          <div class="suave">${esc(m.config.titulo.fuente)} ${esc(m.config.titulo.peso)} · ${esc(m.config.titulo.tam)}px</div>
           <label class="btn btn-chico btn-borde p-subir">${m.capa_path ? "Cambiar capa PNG" : "Subir otra capa PNG"}
             <input type="file" accept="image/png" hidden>
           </label>
