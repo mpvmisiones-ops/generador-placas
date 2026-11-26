@@ -1,5 +1,7 @@
 # Publicar en Facebook desde el Generador
 
+**Estado (26/11/2026):** app de Meta "Generador de Placas" creada (App ID `1007840828452863`, configuración "Publicar placas" `1800950077851451`, sin portfolio comercial, en modo desarrollo). Ya está cargada en `js/config.js`.
+
 El Generador publica o programa cada placa en la página de Facebook de su medio. Quien publica conecta su propio Facebook. La página no guarda la clave de Facebook (token): vive solo en la pestaña abierta.
 
 ## 1. Crear la app de Meta (una sola vez, la hace el administrador)

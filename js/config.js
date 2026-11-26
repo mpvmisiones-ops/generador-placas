@@ -8,6 +8,6 @@ window.CONFIG = {
   DOMINIO_USUARIOS: "placas.local",
   // App de Meta para publicar en Facebook (ver docs/guia-facebook.md). El App ID es público.
   // META_CONFIG_ID: solo si la app usa "Inicio de sesión con Facebook para empresas".
-  META_APP_ID: "",
-  META_CONFIG_ID: "",
+  META_APP_ID: "1007840828452863",
+  META_CONFIG_ID: "1800950077851451",
 };
