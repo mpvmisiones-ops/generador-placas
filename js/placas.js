@@ -415,19 +415,21 @@
       return [Math.max(0, Math.floor(a)), Math.min(ALTO, Math.ceil(b))];
     });
     const z = m.config.foto;
-    const reel = formato === "reel";
-    const W = ANCHO, H = reel ? 1920 : ALTO, dy = reel ? Math.round((1920 - ALTO) / 2) : 0;
-    // fondo del reel: la misma foto desenfocada y oscurecida (achicar y agrandar = desenfoque en cualquier navegador)
-    let fondoReel = null;
-    if (reel) {
-      fondoReel = lienzo(W, H);
-      const fx = fondoReel.getContext("2d");
+    // Formatos: "placa" 4:5 · "reel" 9:16 adaptado a pantalla completa · "reel-centro" 9:16 con la
+    // placa al centro sobre la misma foto desenfocada.
+    const reel = formato === "reel", centro = formato === "reel-centro";
+    const W = ANCHO, H = reel || centro ? 1920 : ALTO, G = reel ? H - ALTO : 0; // G: alto extra del reel adaptado
+    const dy = centro ? Math.round((1920 - ALTO) / 2) : 0;
+    let fondo = null;
+    if (centro) {
+      fondo = lienzo(W, H);
+      const fx = fondo.getContext("2d");
       fx.fillStyle = "#111"; fx.fillRect(0, 0, W, H);
       if (foto) {
         const k = Math.max(W / foto.width, H / foto.height) * 1.15;
         const w = foto.width * k, h = foto.height * k, x = (W - w) / 2, y = (H - h) / 2;
         if ("filter" in fx) { fx.filter = "blur(48px)"; fx.drawImage(foto, x, y, w, h); fx.filter = "none"; }
-        else { // sin filtros: achicar y agrandar en pasos (desenfoque parejo, sin cuadraditos)
+        else {
           let c = lienzo(68, 120); c.getContext("2d").drawImage(foto, x * 68 / W, y * 120 / H, w * 68 / W, h * 120 / H);
           for (const [a, b] of [[270, 480], [W, H]]) { const d = lienzo(a, b), dx = d.getContext("2d"); dx.imageSmoothingQuality = "high"; dx.drawImage(c, 0, 0, a, b); c = d; }
           fx.drawImage(c, 0, 0);
@@ -435,23 +437,49 @@
         fx.fillStyle = "rgba(0,0,0,.45)"; fx.fillRect(0, 0, W, H);
       }
     }
-    const marco = reel ? lienzo(ANCHO, ALTO) : null;
+    // Reel a pantalla completa: el diseño se "abre" en la franja más transparente de la capa
+    // (nunca sobre el título). Lo de arriba queda arriba, lo de abajo baja G px, y en el medio
+    // sigue la foto con esa franja de la capa estirada (así continúan barras y degradés).
+    let corte = ALTO;
+    if (reel) corte = Math.round(ALTO / 2);
+    if (reel) try {
+      const t = m.config.titulo, d = cx.getImageData(0, 0, ANCHO, ALTO).data;
+      let mejor = Infinity;
+      for (let y = 260; y <= 1080; y += 2) {
+        let suma = 0;
+        for (let x = 0; x < ANCHO; x += 6) suma += d[(y * ANCHO + x) * 4 + 3];
+        if (y > t.y - 40 && y < t.y + t.h + 40) suma += 1e7; // no cortar el título
+        if (y > z.y + z.h || y < z.y) suma += 5e5;           // preferir cortar sobre la foto
+        if (suma < mejor) { mejor = suma; corte = y; }
+      }
+    } catch (err) { console.warn("[placas] reel: corte por defecto", err.message); }
+    const bajar = (y) => (y < corte ? y : y + G);
+    // zona de la foto en el reel (se estira si cruza el corte)
+    const zr = { ...z, y: bajar(z.y), h: (z.y + z.h > corte ? z.y + z.h + G : z.y + z.h) - bajar(z.y) };
     function cuadro(ctx, t) {
-      const c = marco ? marco.getContext("2d") : ctx;
+      const c = ctx;
       c.save();
-      c.fillStyle = "#111"; c.fillRect(0, 0, ANCHO, ALTO);
+      if (centro) { c.drawImage(fondo, 0, 0); c.translate(0, dy); c.beginPath(); c.rect(0, 0, ANCHO, ALTO); c.clip(); }
+      c.fillStyle = "#111"; c.fillRect(0, 0, W, reel ? H : ALTO);
       // foto con zoom lento hacia adentro
-      c.save(); c.beginPath(); c.rect(z.x, z.y, z.w, z.h); c.clip();
+      c.save(); c.beginPath(); c.rect(zr.x, zr.y, zr.w, zr.h); c.clip();
       if (foto) {
-        const k = Math.max(z.w / foto.width, z.h / foto.height) * (1 + e.zoom * suavizar(t / duracion));
+        const k = Math.max(zr.w / foto.width, zr.h / foto.height) * (1 + e.zoom * suavizar(t / duracion));
         const w = foto.width * k, h = foto.height * k;
-        const fx = z.focoX ?? 0.5, fy = z.focoY ?? 0.5;
-        c.drawImage(foto, z.x + (z.w - w) * fx, z.y + (z.h - h) * fy, w, h);
-      } else { c.fillStyle = "#3a3a40"; c.fillRect(z.x, z.y, z.w, z.h); }
+        const fx = zr.focoX ?? 0.5, fy = zr.focoY ?? 0.5;
+        c.drawImage(foto, zr.x + (zr.w - w) * fx, zr.y + (zr.h - h) * fy, w, h);
+      } else { c.fillStyle = "#3a3a40"; c.fillRect(zr.x, zr.y, zr.w, zr.h); }
       c.restore();
-      // capa del medio
+      // capa del medio (en el reel: arriba / franja estirada / abajo)
       c.globalAlpha = e.capa ? suavizar((t - e.capa[0]) / e.capa[1]) : 1;
-      if (c.globalAlpha > 0) c.drawImage(capa, 0, 0);
+      if (c.globalAlpha > 0) {
+        if (!reel) c.drawImage(capa, 0, 0);
+        else {
+          c.drawImage(capa, 0, 0, ANCHO, corte, 0, 0, ANCHO, corte);
+          c.drawImage(capa, 0, corte, ANCHO, 1, 0, corte, ANCHO, G);
+          c.drawImage(capa, 0, corte, ANCHO, ALTO - corte, 0, corte + G, ANCHO, ALTO - corte);
+        }
+      }
       c.globalAlpha = 1;
       // título renglón por renglón
       franjas.forEach(([a, b], i) => {
@@ -459,10 +487,9 @@
         if (p <= 0) return;
         c.globalAlpha = p;
         const ox = e.mov === "costado" ? -(1 - p) * 90 : 0, oy = e.mov === "arriba" ? (1 - p) * 34 : 0;
-        c.drawImage(tit, 0, a, ANCHO, b - a, ox, a + oy, ANCHO, b - a);
+        c.drawImage(tit, 0, a, ANCHO, b - a, ox, bajar(a) + oy, ANCHO, b - a);
       });
       c.restore();
-      if (marco) { ctx.drawImage(fondoReel, 0, 0); ctx.drawImage(marco, 0, dy); }
     }
     return { ancho: W, alto: H, duracion, cuadro, entra: med.entra };
   }

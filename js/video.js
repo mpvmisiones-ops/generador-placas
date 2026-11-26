@@ -91,7 +91,7 @@
   // ---------- Nombres (los mismos que las imágenes del ZIP) ----------
   function nombre(pl, ext) {
     const m = medioDe(pl), clave = P().palabrasClave(G().noticias[pl.noticia].titulos).join("-");
-    return { carpeta: m.nombre, archivo: `noticia-${pl.noticia + 1}-${clave ? clave + "-" : ""}${P().nombreArchivo(m.nombre)}${opciones.formato === "reel" ? "-reel" : ""}.${ext}` };
+    return { carpeta: m.nombre, archivo: `noticia-${pl.noticia + 1}-${clave ? clave + "-" : ""}${P().nombreArchivo(m.nombre)}${opciones.formato === "placa" ? "" : "-reel"}.${ext}` };
   }
   function bajar(blob, archivo) {
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = archivo;
@@ -104,7 +104,9 @@
     const pl = G().placas[elegida]; if (!pl) return;
     anim = armar(pl);
     const c = $("#v-canvas"); c.width = anim.ancho; c.height = anim.alto;
-    c.classList.toggle("v-reel", opciones.formato === "reel");
+    c.classList.toggle("v-reel", opciones.formato !== "placa");
+    $("#v-formato-ayuda").textContent = { reel: "Vertical 9:16 a pantalla completa: la foto ocupa todo y el diseño del medio se acomoda arriba y abajo.",
+      "reel-centro": "Vertical 9:16 con la placa tal cual al centro, sobre la misma foto desenfocada.", placa: "La placa 4:5 animada, para el feed." }[opciones.formato];
     const ctx = c.getContext("2d");
     inicio = performance.now();
     const paso = () => {
