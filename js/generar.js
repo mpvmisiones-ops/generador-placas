@@ -43,6 +43,7 @@
     $("#g-corregir").addEventListener("click", () => { const i = estado.placas.findIndex(p => !p.entra); if (i >= 0) abrirEditor(i); });
     prepararEditor();
     window.addEventListener("popstate", alVolver);
+    setInterval(autoguardar, 40000); // guardado automático en el historial
     window.addEventListener("beforeunload", (e) => { if (estado.noticias.some(n => n.fotos.length)) { e.preventDefault(); e.returnValue = ""; } });
     history.replaceState({ ...(history.state || {}), paso: 1, d: 0, dlg: false }, "");
     leer();
@@ -521,9 +522,20 @@
     estado.noticias.map(n => [n.titulos, n.fotos.map(f => f.id)]),
     estado.placas.map(pl => [pl.noticia, pl.medio, pl.titulo, pl.fotoId, pl.texto, pl.ajuste, pl.facebook]),
   ]);
-  function guardarHistorial() {
+  // Cada 40 segundos, si hay placas armadas y algo cambió desde el último guardado, se guarda sola
+  // (sin cartel; abajo de "Revisá las placas" se ve la hora del último guardado).
+  function autoguardar() {
+    if (!window.sb || estado.armando || estado.guardando || !estado.placas.length || estado.paso !== 3) return;
+    if (estado.guardado === claveTanda()) return;
+    guardarHistorial({ silencioso: true });
+  }
+  function pintarGuardado(t, mal) {
+    const el = $("#g-autoguardado"); if (!el) return;
+    el.textContent = t; el.classList.toggle("mal", !!mal);
+  }
+  function guardarHistorial(op = {}) {
     if (!window.sb || estado.guardado === claveTanda()) return; // no repetir si no cambió nada
-    if (estado.guardando) return estado.guardando.then(guardarHistorial);
+    if (estado.guardando) return estado.guardando.then(() => guardarHistorial(op));
     estado.guardando = (async () => {
       const clave = claveTanda();
       try {
@@ -550,11 +562,15 @@
           error = r.error; if (!error) estado.historialId = r.data.id;
         }
         if (error) throw error;
-        estado.guardado = clave; recordarTitulos();
-        aviso(sinSubir ? `Guardado en el historial, pero ${plural(sinSubir, "foto no se pudo subir", "fotos no se pudieron subir")}.` : "Guardado en el historial.", !!sinSubir);
+        estado.guardado = clave; recordarTitulos(); estado.avisoError = false;
+        const horaG = new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+        pintarGuardado(sinSubir ? `Guardado ${horaG}, pero ${plural(sinSubir, "foto no se subió", "fotos no se subieron")}.` : `✓ Guardado en el historial a las ${horaG}`, !!sinSubir);
+        if (!op.silencioso || sinSubir) aviso(sinSubir ? `Guardado en el historial, pero ${plural(sinSubir, "foto no se pudo subir", "fotos no se pudieron subir")}.` : "Guardado en el historial.", !!sinSubir);
       } catch (e) {
         console.warn("[placas] no se guardó el historial:", e.message);
-        aviso("No se pudo guardar en el historial: " + e.message, true);
+        pintarGuardado("No se pudo guardar: " + e.message + " (se vuelve a intentar solo).", true);
+        if (!op.silencioso || !estado.avisoError) aviso("No se pudo guardar en el historial: " + e.message, true);
+        estado.avisoError = true; // el automático no repite el cartel en cada intento
       } finally { estado.guardando = null; }
     })();
     return estado.guardando;
@@ -577,7 +593,7 @@
     estado.noticias.forEach(n => n.fotos.forEach(soltarFoto));
     estado.placas.forEach(p => p.url && URL.revokeObjectURL(p.url));
     Object.assign(estado, { noticias: [], placas: [], firma: "", semilla: 0, pendientes: null });
-    $("#g-placas").innerHTML = ""; $("#g-progreso").textContent = "";
+    $("#g-placas").innerHTML = ""; $("#g-progreso").textContent = ""; pintarGuardado("");
     olvidarTanda();
   }
   function olvidarTanda() {
